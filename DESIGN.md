@@ -51,9 +51,18 @@ bubbles, an audit-trail viewer UI, analytics/insights. *(These are fast-follows.
 └────────────────────────────────────────────────────────────┘
 ```
 
-**Frontend stack:** Vite + React + TypeScript, `vite-plugin-pwa` (service
-worker / web manifest / installability), Dexie for IndexedDB local store +
-write queue, `@supabase/supabase-js` for auth + DB + realtime.
+**Frontend stack:** Vite **8** + React + TypeScript, `vite-plugin-pwa@^1.3.0`
+(service worker / web manifest / installability), Dexie for IndexedDB local
+store + write queue, `@supabase/supabase-js` for auth + DB + realtime.
+**Linter:** oxlint (create-vite template default) + Prettier. **Package manager:**
+npm (pnpm unavailable on the build machine; `package-lock.json` committed).
+
+> **Phase 0 actuals (scaffold shipped, PR #9):** the create-vite react-ts
+template now ships **Vite 8**, which forced `vite-plugin-pwa` to the **1.x** line
+(the 0.21.x line peer-depends on Vite ≤6 and is incompatible). The template
+also ships **oxlint** (not eslint). npm was used throughout (pnpm unavailable).
+`npm audit` reports 8 high-severity transitive vulns on the fresh scaffold —
+not blocking; review before later phases.
 
 **Backend:** Supabase (hosted Postgres + Auth + Realtime). No custom server —
 the SPA talks to Supabase directly over HTTPS, gated by Row Level Security.

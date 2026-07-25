@@ -9,11 +9,46 @@ This plan references it but does not repeat the rationale.
 
 ---
 
+## Status / Progress
+
+> Living tracker — updated as phases complete. See the phases table below for
+> per-phase state.
+
+| Phase | Issue | State | Branch / PR |
+|-------|-------|-------|-------------|
+| 0 — Scaffold | #1 | ✅ **DONE** (PR #9 open) | `feat/issue-1-scaffold` → [PR #9](https://github.com/gohlihan/couple-spending/pull/9) |
+| 1 — Supabase schema + RLS | #2 | ⬜ pending | — |
+| 2 — Auth + invite | #3 | ⬜ pending | — |
+| 3 — Add-transaction form | #4 | ⬜ pending | — |
+| 4 — Waterfall + date bar | #5 | ⬜ pending | — |
+| 5 — Budget setting | #6 | ⬜ pending | — |
+| 6 — Offline sync queue | #7 | ⬜ pending | — |
+| 7 — Edit/delete + audit | #8 | ⬜ pending | — |
+
+### Stack actuals (from Phase 0)
+
+- **Vite 8** (create-vite react-ts template default, not 5/6)
+- **vite-plugin-pwa@^1.3.0** — the 0.21.x line peer-depends on Vite ≤6 and is
+  **incompatible with Vite 8**; the 1.x line supports Vite 8.
+- **oxlint** (template default, `.oxlintrc.json`) + Prettier — **not** eslint
+- **npm** (pnpm unavailable on the build machine); `package-lock.json` committed
+- `npm audit`: **8 high-severity transitive vulns** on the fresh scaffold — not
+  Phase-0-blocking; review before later phases.
+
+### Open question for Phase 1 (#2)
+
+Phase 1 (Supabase schema + RLS) needs a **Supabase project** (URL + anon key) to
+apply + test migrations against. Open: does the user have a Supabase project, or
+should the worker ship an untested `schema.sql` migration file? Resolve before
+assigning issue #2.
+
+---
+
 ## V1 Build Phases
 
 | Phase | Issue | Title | Depends on |
 |-------|-------|-------|------------|
-| 0 | #1 | Scaffold: Vite + React + TS + PWA plugin + Dexie + supabase-js | — |
+| 0 | #1 | ✅ Scaffold: Vite + React + TS + PWA plugin + Dexie + supabase-js | — |
 | 1 | #2 | Supabase schema, RLS policies, audit-log trigger | 0 |
 | 2 | #3 | Auth + invite-code household linking | 1 |
 | 3 | #4 | Add-transaction form + local Dexie write | 2 |
@@ -28,9 +63,23 @@ queue before edit/delete (so writes are resilient first).
 
 ---
 
-### Phase 0 — Scaffold (#1)
+### Phase 0 — Scaffold (#1) ✅
 
-**Scope:** Empty repo → runnable, installable PWA shell. No business logic.
+**State:** DONE — branch `feat/issue-1-scaffold`, [PR #9](https://github.com/gohlihan/couple-spending/pull/9)
+(open, not yet merged). Validation passed: `npm run build` → `dist/` with
+`sw.js` + `workbox-*.js` + `registerSW.js` + `manifest.webmanifest` (installable);
+`npm run dev` serves on :5173; `.env.local` gitignored; 4 docs preserved.
+
+**Actuals (deviations from the original steps below):**
+- **npm** used (pnpm unavailable) → `package-lock.json` committed.
+- **Vite 8** shipped by the template → required **`vite-plugin-pwa@^1.3.0`**
+  (0.21.x is incompatible with Vite 8).
+- **oxlint** (`.oxlintrc.json`) replaced eslint as the template default; Prettier
+  added on top.
+- Removed unused demo assets (react/vite logos) for a clean minimal shell.
+- `npm audit`: 8 high-sev transitive vulns (non-blocking; review pre-Phase-1).
+
+**Scope (original):** Empty repo → runnable, installable PWA shell. No business logic.
 
 **Steps:**
 1. `npm create vite@latest . -- --template react-ts` (or pnpm).
@@ -41,11 +90,11 @@ queue before edit/delete (so writes are resilient first).
 4. Add `src/lib/supabase.ts` (reads `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
    from `.env.local`), `src/lib/db.ts` (Dexie schema stub), `src/App.tsx` shell.
 5. Add `.env.example`, `.gitignore` (node_modules, dist, .env.local).
-6. Add an `eslint` + `prettier` baseline; a `pnpm dev` / `pnpm build` that works.
+6. Add an **oxlint** + `prettier` baseline; a `npm run dev` / `npm run build` that works.
 7. Commit `.env.example` with placeholders; **never** commit real keys.
 
 **Validation:**
-- `pnpm dev` serves the app; `pnpm build` produces a `dist/` with a service
+- `npm run dev` serves the app; `npm run build` produces a `dist/` with a service
   worker + manifest.
 - Lighthouse PWA check passes (installable).
 - `.env.local` is gitignored.
