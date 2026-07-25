@@ -1,0 +1,29 @@
+:root {
+  color-scheme: light dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  color: #08060d;
+  background: #fff;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #f3f4f6;
+    background: #16171d;
+  }
+}
