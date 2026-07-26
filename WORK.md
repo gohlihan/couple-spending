@@ -21,7 +21,7 @@ This plan references it but does not repeat the rationale.
 | 2 — Auth + invite | #3 | ✅ **DONE** (PR #11 merged) | `feat/issue-3-auth-invite` → [PR #11](https://github.com/gohlihan/couple-spending/pull/11) |
 | 3 — Add-transaction form | #4 | ✅ **DONE** (PR #14 merged) | `feat/issue-4-add-transaction` → [PR #14](https://github.com/gohlihan/couple-spending/pull/14) |
 | 4 — Waterfall + date bar | #5 | ✅ **DONE** (PR #13 merged) | `feat/issue-5-waterfall-datebar` → [PR #13](https://github.com/gohlihan/couple-spending/pull/13) |
-| 5 — Budget setting | #6 | ✅ **DONE** (PR #15 open) | `feat/issue-6-budget-setting` → [PR #15](https://github.com/gohlihan/couple-spending/pull/15) |
+| 5 — Budget setting | #6 | ✅ **DONE** (PR #15 merged) | `feat/issue-6-budget-setting` → [PR #15](https://github.com/gohlihan/couple-spending/pull/15) |
 | 6 — Offline sync queue | #7 | ⬜ pending | — |
 | 7 — Edit/delete + audit | #8 | ⬜ pending | — |
 
@@ -207,7 +207,7 @@ Auto-stamp `created_by` from the session user.
 
 ### Phase 5 — Budget setting (#6) ✅
 
-**State:** DONE — branch `feat/issue-6-budget-setting`, [PR #15](https://github.com/gohlihan/couple-spending/pull/15) (open). Validation passed: `npm run build` and `npm run lint`.
+**State:** DONE — branch `feat/issue-6-budget-setting`, [PR #15](https://github.com/gohlihan/couple-spending/pull/15) (merged). Validation passed: `npm run build` and `npm run lint`.
 
 **Scope:** Edit the monthly budget amount; carries forward.
 
