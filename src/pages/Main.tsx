@@ -1,7 +1,10 @@
-import { liveQuery } from 'dexie';
-import { useEffect, useState } from 'react';
-import { db } from '../lib/db';
+import { useState } from 'react';
 import { useAuth } from '../lib/use-auth';
+import { useBudget } from '../lib/budget';
+import { useHouseholdMembers } from '../lib/members';
+import { useMonthTransactions } from '../lib/use-month-transactions';
+import DateBar from '../components/DateBar';
+import Waterfall from '../components/Waterfall';
 import AddTransaction from './AddTransaction';
 import Invite from './Invite';
 
@@ -11,28 +14,16 @@ interface MainProps {
 
 export default function Main({ onSignOut }: MainProps) {
   const { user, displayName, householdId, inviteCode } = useAuth();
+  const [month, setMonth] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+  });
+  const [showAdd, setShowAdd] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
-  const [transactionCount, setTransactionCount] = useState(0);
 
-  useEffect(() => {
-    if (!householdId) {
-      setTransactionCount(0);
-      return;
-    }
-
-    const subscription = liveQuery(() =>
-      db.transactions
-        .where('household_id')
-        .equals(householdId)
-        .filter((transaction) => transaction.deleted_at === null)
-        .count(),
-    ).subscribe({
-      next: setTransactionCount,
-      error: (error) => console.warn('Could not read local transactions.', error),
-    });
-
-    return () => subscription.unsubscribe();
-  }, [householdId]);
+  const budget = useBudget(householdId);
+  const transactions = useMonthTransactions(householdId, month);
+  const memberNames = useHouseholdMembers(householdId);
 
   return (
     <div className="app-shell">
@@ -43,21 +34,20 @@ export default function Main({ onSignOut }: MainProps) {
         </button>
       </header>
 
+      <DateBar month={month} onChange={setMonth} />
+
       <main className="app-main">
         <p className="welcome">Hi, {displayName ?? user?.email ?? 'there'} 👋</p>
-        <AddTransaction />
 
-        <section className="recent-placeholder" aria-label="Recent transactions">
-          <h2>Recent transactions</h2>
-          <p className="muted">
-            {transactionCount === 0
-              ? 'No local transactions yet.'
-              : `${transactionCount} local transaction${transactionCount === 1 ? '' : 's'}.`}
-          </p>
-        </section>
+        <Waterfall transactions={transactions} budget={budget} memberNames={memberNames} />
 
         {showInvite ? (
-          <Invite />
+          <>
+            <Invite />
+            <button type="button" className="btn-link" onClick={() => setShowInvite(false)}>
+              Hide invite code
+            </button>
+          </>
         ) : (
           inviteCode && (
             <button type="button" className="btn-secondary" onClick={() => setShowInvite(true)}>
@@ -65,12 +55,42 @@ export default function Main({ onSignOut }: MainProps) {
             </button>
           )
         )}
-        {showInvite && (
-          <button type="button" className="btn-link" onClick={() => setShowInvite(false)}>
-            Hide
-          </button>
-        )}
       </main>
+
+      <button
+        type="button"
+        className="fab"
+        onClick={() => setShowAdd(true)}
+        aria-label="Add transaction"
+      >
+        +
+      </button>
+
+      {showAdd && (
+        <div
+          className="sheet-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add transaction"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setShowAdd(false);
+          }}
+        >
+          <div className="sheet">
+            <div className="sheet-handle-row">
+              <button
+                type="button"
+                className="btn-link"
+                onClick={() => setShowAdd(false)}
+                aria-label="Close"
+              >
+                Close
+              </button>
+            </div>
+            <AddTransaction />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

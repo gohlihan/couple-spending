@@ -399,3 +399,208 @@ body {
 .recent-placeholder .muted {
   margin-top: 0.35rem;
 }
+
+/* ---------------------------------------------------------------------------
+ * Date bar (month picker)
+ * ------------------------------------------------------------------------ */
+
+.date-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.date-bar-arrow {
+  border: 1px solid var(--border);
+  background: var(--field-bg);
+  color: inherit;
+  border-radius: 999px;
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.date-bar-arrow:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.date-bar-label {
+  min-width: 10rem;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------
+ * Waterfall timeline
+ * ------------------------------------------------------------------------ */
+
+.waterfall {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.waterfall-summary {
+  padding: 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.waterfall-remaining {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.waterfall-remaining-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.waterfall-remaining-value {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--brand);
+}
+
+.waterfall-remaining-value.is-negative {
+  color: var(--danger);
+}
+
+.waterfall-summary-meta {
+  margin: 0.35rem 0 0;
+}
+
+.waterfall-empty {
+  padding: 0.5rem 0.25rem;
+}
+
+.waterfall-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.waterfall-item {
+  padding: 0.85rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+}
+
+.waterfall-item-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.waterfall-item-amount {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.waterfall-item-running {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.waterfall-item-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.waterfall-chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--brand);
+}
+
+.waterfall-item-who {
+  margin-left: auto;
+  font-weight: 600;
+}
+
+.waterfall-item-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Floating add button + bottom sheet
+ * ------------------------------------------------------------------------ */
+
+.fab {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.5rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+}
+
+.fab:hover {
+  background: var(--brand-dark);
+}
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 30;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 32rem;
+  max-height: 90svh;
+  overflow-y: auto;
+  background: var(--card);
+  border-radius: 1rem 1rem 0 0;
+  padding: 0.5rem 1.25rem 1.5rem;
+}
+
+.sheet-handle-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.25rem 0;
+}
