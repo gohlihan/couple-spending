@@ -6,6 +6,7 @@ import { useMonthTransactions } from '../lib/use-month-transactions';
 import DateBar from '../components/DateBar';
 import Waterfall from '../components/Waterfall';
 import AddTransaction from './AddTransaction';
+import BudgetSettings from './BudgetSettings';
 import Invite from './Invite';
 
 interface MainProps {
@@ -19,6 +20,7 @@ export default function Main({ onSignOut }: MainProps) {
     return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
   });
   const [showAdd, setShowAdd] = useState(false);
+  const [showBudget, setShowBudget] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
 
   const budget = useBudget(householdId);
@@ -38,6 +40,14 @@ export default function Main({ onSignOut }: MainProps) {
 
       <main className="app-main">
         <p className="welcome">Hi, {displayName ?? user?.email ?? 'there'} 👋</p>
+
+        <button
+          type="button"
+          className="btn-secondary budget-settings-button"
+          onClick={() => setShowBudget(true)}
+        >
+          Budget settings
+        </button>
 
         <Waterfall transactions={transactions} budget={budget} memberNames={memberNames} />
 
@@ -65,6 +75,32 @@ export default function Main({ onSignOut }: MainProps) {
       >
         +
       </button>
+
+      {showBudget && (
+        <div
+          className="sheet-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Budget settings"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setShowBudget(false);
+          }}
+        >
+          <div className="sheet">
+            <div className="sheet-handle-row">
+              <button
+                type="button"
+                className="btn-link"
+                onClick={() => setShowBudget(false)}
+                aria-label="Close budget settings"
+              >
+                Close
+              </button>
+            </div>
+            <BudgetSettings budget={budget} />
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div

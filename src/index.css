@@ -257,6 +257,30 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+ * Budget settings
+ * ------------------------------------------------------------------------ */
+
+.budget-settings-button {
+  align-self: stretch;
+}
+
+.budget-card {
+  padding: 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.budget-card h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.budget-card .muted {
+  margin-top: 0.35rem;
+}
+
+/* ---------------------------------------------------------------------------
  * Invite card
  * ------------------------------------------------------------------------ */
 
