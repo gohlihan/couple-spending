@@ -17,7 +17,7 @@ This plan references it but does not repeat the rationale.
 | Phase | Issue | State | Branch / PR |
 |-------|-------|-------|-------------|
 | 0 — Scaffold | #1 | ✅ **DONE** (PR #9 open) | `feat/issue-1-scaffold` → [PR #9](https://github.com/gohlihan/couple-spending/pull/9) |
-| 1 — Supabase schema + RLS | #2 | ⬜ pending | — |
+| 1 — Supabase schema + RLS | #2 | ✅ **DONE** (PR #10 merged) | `feat/issue-2-supabase-schema-rls` → [PR #10](https://github.com/gohlihan/couple-spending/pull/10) |
 | 2 — Auth + invite | #3 | ⬜ pending | — |
 | 3 — Add-transaction form | #4 | ⬜ pending | — |
 | 4 — Waterfall + date bar | #5 | ⬜ pending | — |
@@ -35,12 +35,15 @@ This plan references it but does not repeat the rationale.
 - `npm audit`: **8 high-severity transitive vulns** on the fresh scaffold — not
   Phase-0-blocking; review before later phases.
 
-### Open question for Phase 1 (#2)
+### Phase 1 readiness (#2) — resolved
 
 Phase 1 (Supabase schema + RLS) needs a **Supabase project** (URL + anon key) to
-apply + test migrations against. Open: does the user have a Supabase project, or
-should the worker ship an untested `schema.sql` migration file? Resolve before
-assigning issue #2.
+apply + test migrations against. **Resolved:** validated against the live
+Supabase project `hxhzxkhdqfhznwdiugxz` — migration applied, cross-household RLS
+denial + `join_household` ≤2-member cap + audit triggers confirmed (a
+param/column-name collision in `join_household` was fixed by renaming the
+parameter `invite_code` → `p_invite_code` and schema-qualifying the column).
+Merged via PR #10 (squash); issue #2 closed.
 
 ---
 
