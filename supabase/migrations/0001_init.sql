@@ -128,14 +128,14 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------------
--- 3.2 join_household(invite_code) — the ONE legit cross-household path.
+-- 3.2 join_household(p_invite_code) — the ONE legit cross-household path.
 --      Security definer (bypasses RLS) so the 2nd user can insert a
 --      household_members row for a household they don't yet belong to.
 --      Validates the invite code, enforces the ≤2 cap, inserts the membership,
 --      and returns the household id. Re-joining an existing membership is a
 --      safe no-op (on conflict do nothing).
 -- ---------------------------------------------------------------------------
-create or replace function public.join_household(invite_code text)
+create or replace function public.join_household(p_invite_code text)
 returns uuid
 language plpgsql
 security definer
@@ -145,10 +145,13 @@ declare
     v_household_id uuid;
     v_member_count int;
 begin
-    -- Look up the household by invite code.
+    -- Look up the household by invite code. The parameter is prefixed p_
+    -- and the column is schema-qualified so the PL/pgSQL parameter does not
+    -- shadow the households.invite_code column (avoids "column reference
+    -- 'invite_code' is ambiguous").
     select id into v_household_id
     from public.households
-    where invite_code = join_household.invite_code;
+    where public.households.invite_code = p_invite_code;
 
     if v_household_id is null then
         raise exception 'Invalid or unknown invite code';

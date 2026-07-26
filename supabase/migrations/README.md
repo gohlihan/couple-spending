@@ -28,7 +28,7 @@ supabase/migrations/
 
 - `current_household_id()` — security-definer helper returning the caller's
   household; used by every RLS policy.
-- `join_household(invite_code)` — security-definer; the one legit cross-household
+- `join_household(p_invite_code)` — security-definer; the one legit cross-household
   path. Validates the code, enforces the ≤2 cap, inserts the caller's
   membership. Bypasses RLS.
 - `enforce_household_member_cap` — BEFORE INSERT/UPDATE trigger on
@@ -68,7 +68,7 @@ The CLI picks up files under `supabase/migrations/` and applies them in order.
    `auth.uid()`). Both inserts are allowed by the RLS bootstrap policies
    (`created_by = auth.uid()` and `user_id = auth.uid()` respectively).
 3. The app shows the `invite_code` (or a `?invite=<code>` share link).
-4. **Second user** signs up and calls `join_household(invite_code)`.
+4. **Second user** signs up and calls `join_household(p_invite_code)`.
    `join_household` is `security definer`, so it bypasses RLS to insert the
    2nd membership. It rejects a 3rd joiner and a bad code.
 5. Both users now share a `household_id`; all data is scoped to it via RLS.
