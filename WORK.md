@@ -18,9 +18,9 @@ This plan references it but does not repeat the rationale.
 |-------|-------|-------|-------------|
 | 0 — Scaffold | #1 | ✅ **DONE** (PR #9 open) | `feat/issue-1-scaffold` → [PR #9](https://github.com/gohlihan/couple-spending/pull/9) |
 | 1 — Supabase schema + RLS | #2 | ✅ **DONE** (PR #10 merged) | `feat/issue-2-supabase-schema-rls` → [PR #10](https://github.com/gohlihan/couple-spending/pull/10) |
-| 2 — Auth + invite | #3 | ⬜ pending | — |
-| 3 — Add-transaction form | #4 | ⬜ pending | — |
-| 4 — Waterfall + date bar | #5 | ⬜ pending | — |
+| 2 — Auth + invite | #3 | ✅ **DONE** (PR #11 merged) | `feat/issue-3-auth-invite` → [PR #11](https://github.com/gohlihan/couple-spending/pull/11) |
+| 3 — Add-transaction form | #4 | ✅ **DONE** (PR #14 merged) | `feat/issue-4-add-transaction` → [PR #14](https://github.com/gohlihan/couple-spending/pull/14) |
+| 4 — Waterfall + date bar | #5 | ✅ **DONE** (PR #13 merged) | `feat/issue-5-waterfall-datebar` → [PR #13](https://github.com/gohlihan/couple-spending/pull/13) |
 | 5 — Budget setting | #6 | ⬜ pending | — |
 | 6 — Offline sync queue | #7 | ⬜ pending | — |
 | 7 — Edit/delete + audit | #8 | ⬜ pending | — |
