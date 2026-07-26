@@ -22,7 +22,7 @@ This plan references it but does not repeat the rationale.
 | 3 — Add-transaction form | #4 | ✅ **DONE** (PR #14 merged) | `feat/issue-4-add-transaction` → [PR #14](https://github.com/gohlihan/couple-spending/pull/14) |
 | 4 — Waterfall + date bar | #5 | ✅ **DONE** (PR #13 merged) | `feat/issue-5-waterfall-datebar` → [PR #13](https://github.com/gohlihan/couple-spending/pull/13) |
 | 5 — Budget setting | #6 | ✅ **DONE** (PR #15 merged) | `feat/issue-6-budget-setting` → [PR #15](https://github.com/gohlihan/couple-spending/pull/15) |
-| 6 — Offline sync queue | #7 | ⬜ pending | — |
+| 6 — Offline sync queue | #7 | ✅ **DONE** (PR #16 open) | `feat/issue-7-offline-sync` → [PR #16](https://github.com/gohlihan/couple-spending/pull/16) |
 | 7 — Edit/delete + audit | #8 | ⬜ pending | — |
 
 ### Stack actuals (from Phase 0)
