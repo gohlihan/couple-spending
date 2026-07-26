@@ -1,6 +1,5 @@
 import type { User } from '@supabase/supabase-js';
 import { db, type Transaction } from './db';
-import { supabase } from './supabase';
 
 export interface AddTransactionInput {
   amount: number;
@@ -15,8 +14,8 @@ export interface TransactionAuthor {
 }
 
 /**
- * Stores a transaction locally before attempting its best-effort v1 remote
- * insert. The pending change remains queued for the Phase 6 sync engine.
+ * Stores a transaction locally and appends the durable write-queue entry. The
+ * sync engine is the only path that writes this row to Supabase.
  */
 export async function addTransaction(
   input: AddTransactionInput,
@@ -49,6 +48,7 @@ export async function addTransaction(
     await db.transactions.add(transaction);
     await db.pendingChanges.add({
       client_id: clientId,
+      household_id: householdId,
       op: 'insert',
       table: 'transactions',
       record_id: id,
@@ -58,18 +58,4 @@ export async function addTransaction(
       attempts: 0,
     });
   });
-
-  // Phase 6 will drain pendingChanges with retries. Until then, an online
-  // insert gives linked partners immediate server visibility without delaying
-  // the local-first UI.
-  if (navigator.onLine) {
-    void (async () => {
-      try {
-        const { error } = await supabase.from('transactions').insert(transaction);
-        if (error) console.warn('Transaction queued locally; remote insert failed.', error);
-      } catch (error: unknown) {
-        console.warn('Transaction queued locally; remote insert failed.', error);
-      }
-    })();
-  }
 }

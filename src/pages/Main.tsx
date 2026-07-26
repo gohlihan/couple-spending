@@ -3,6 +3,7 @@ import { useAuth } from '../lib/use-auth';
 import { useBudget } from '../lib/budget';
 import { useHouseholdMembers } from '../lib/members';
 import { useMonthTransactions } from '../lib/use-month-transactions';
+import { useSync } from '../lib/sync';
 import DateBar from '../components/DateBar';
 import Waterfall from '../components/Waterfall';
 import AddTransaction from './AddTransaction';
@@ -26,14 +27,24 @@ export default function Main({ onSignOut }: MainProps) {
   const budget = useBudget(householdId);
   const transactions = useMonthTransactions(householdId, month);
   const memberNames = useHouseholdMembers(householdId);
+  const sync = useSync(householdId);
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <h1>Couple Spending</h1>
-        <button type="button" className="btn-header" onClick={onSignOut}>
-          Sign out
-        </button>
+        <div className="app-header-actions">
+          <span
+            className={`sync-status sync-status-${sync.status.replace(' ', '-')}`}
+            role="status"
+            aria-live="polite"
+          >
+            Sync: {sync.status}
+          </span>
+          <button type="button" className="btn-header" onClick={onSignOut}>
+            Sign out
+          </button>
+        </div>
       </header>
 
       <DateBar month={month} onChange={setMonth} />

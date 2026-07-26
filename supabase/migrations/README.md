@@ -9,6 +9,8 @@ Model) and §5 (RLS) for the full design rationale.
 ```
 supabase/migrations/
 ├── 0001_init.sql   # all 5 tables, RLS, functions, triggers
+├── 0002_auto_stamp_defaults.sql # auth-derived default stamps
+├── 0003_realtime_publication.sql # Realtime publication + DELETE identity
 └── README.md       # this file
 ```
 
@@ -34,21 +36,34 @@ supabase/migrations/
 - `enforce_household_member_cap` — BEFORE INSERT/UPDATE trigger on
   `household_members` that raises if a household would exceed 2 members.
 - `bump_transactions_updated_at` / `bump_budgets_updated_at` — BEFORE UPDATE
-  triggers that set `updated_at = now()` (last-write-wins key).
+  triggers that preserve the client `updated_at` conflict key and skip stale
+  updates (the 0003 migration supplies `now()` only for an explicit NULL).
 - `audit_transactions` / `audit_budgets` — AFTER INSERT/UPDATE/DELETE triggers
   that write one `audit_log` row per change (`old_values`/`new_values` via
   `to_jsonb`, `changed_by = auth.uid()`).
 
+## Realtime publication (0003)
+
+`0003_realtime_publication.sql` adds `public.transactions` and `public.budgets`
+to the managed `supabase_realtime` publication and sets `REPLICA IDENTITY FULL`.
+The latter keeps `household_id` and `updated_at` in DELETE payloads so the
+household-scoped client subscription can apply the same last-write-wins check
+as INSERT/UPDATE events. The migration checks `pg_publication_tables` before
+adding each table, so it is safe to rerun and does not require a dashboard-only
+configuration step.
+
 ## How to apply
 
-> **This migration has NOT been applied to a Supabase project yet.** Apply +
-> test is deferred until the Supabase project is ready (issue #2 stays open).
+> Apply the migrations in numeric order to each Supabase project. Existing
+> environments that already have `0001` and `0002` only need `0003`.
 
 ### Option A — Supabase Studio SQL Editor (simplest)
 
 1. Open your Supabase project → **SQL Editor** → **New query**.
-2. Paste the entire contents of `supabase/migrations/0001_init.sql`.
-3. Click **Run**. Re-running is safe (the file is idempotent).
+2. Run `0001_init.sql`, then `0002_auto_stamp_defaults.sql`, then
+   `0003_realtime_publication.sql` in order.
+3. Click **Run** after each migration. The migrations are safe to re-run where
+   their SQL comments/documentation say they are idempotent.
 
 ### Option B — Supabase CLI (`supabase db push`)
 
