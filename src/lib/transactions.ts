@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import { db, type Transaction } from './db';
+import { nextLocalUpdatedAt } from './version';
 
 export interface AddTransactionInput {
   amount: number;
@@ -25,7 +26,7 @@ export async function addTransaction(
     throw new Error('You must be signed in to a household before adding a transaction.');
   }
 
-  const now = new Date().toISOString();
+  const now = nextLocalUpdatedAt();
   const id = crypto.randomUUID();
   const clientId = crypto.randomUUID();
   const transaction: Transaction = {

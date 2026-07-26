@@ -10,10 +10,12 @@ export interface Transaction {
   created_by: string;
   created_at: string;
   updated_at: string;
-  updated_by: string;
+  updated_by: string | null;
   deleted_at: string | null;
   deleted_by: string | null;
   client_id: string;
+  /** True when client_id is a local-only index fallback for a legacy NULL row. */
+  legacy_client_id?: boolean;
 }
 
 export interface Budget {
@@ -21,7 +23,7 @@ export interface Budget {
   household_id: string;
   amount: number;
   updated_at: string;
-  updated_by: string;
+  updated_by: string | null;
 }
 
 export interface HouseholdMember {

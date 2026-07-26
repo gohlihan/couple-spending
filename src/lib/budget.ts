@@ -2,6 +2,7 @@ import { liveQuery } from 'dexie';
 import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { db, type Budget } from './db';
+import { nextLocalUpdatedAt } from './version';
 
 export interface BudgetAuthor {
   user: User | null;
@@ -24,7 +25,6 @@ export async function saveBudget(
     throw new Error('Budget must be a finite amount of zero or more.');
   }
 
-  const now = new Date().toISOString();
   await db.transaction('rw', db.budgets, db.pendingChanges, async () => {
     // The server enforces one budget per household. Reuse the local row as
     // well, so repeated edits update rather than create another budget.
@@ -33,7 +33,7 @@ export async function saveBudget(
       id: existing?.id ?? crypto.randomUUID(),
       household_id: householdId,
       amount,
-      updated_at: now,
+      updated_at: nextLocalUpdatedAt(new Date(), existing?.updated_at ?? null),
       updated_by: user.id,
     };
     await db.budgets.put(next);
@@ -47,7 +47,7 @@ export async function saveBudget(
       table: 'budgets',
       record_id: next.id,
       payload: next,
-      created_at: now,
+      created_at: next.updated_at,
       status: 'pending',
       attempts: 0,
     });

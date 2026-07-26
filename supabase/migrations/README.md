@@ -10,7 +10,8 @@ Model) and §5 (RLS) for the full design rationale.
 supabase/migrations/
 ├── 0001_init.sql   # all 5 tables, RLS, functions, triggers
 ├── 0002_auto_stamp_defaults.sql # auth-derived default stamps
-├── 0003_realtime_publication.sql # Realtime publication + DELETE identity
+├── 0003_realtime_publication.sql # Realtime publication + replica identity
+├── 0004_sync_version_ordering.sql # client LWW trigger ordering
 └── README.md       # this file
 ```
 
@@ -36,32 +37,46 @@ supabase/migrations/
 - `enforce_household_member_cap` — BEFORE INSERT/UPDATE trigger on
   `household_members` that raises if a household would exceed 2 members.
 - `bump_transactions_updated_at` / `bump_budgets_updated_at` — BEFORE UPDATE
-  triggers that preserve the client `updated_at` conflict key and skip stale
-  updates (the 0003 migration supplies `now()` only for an explicit NULL).
+  triggers that preserve the client `updated_at` conflict key, order equal
+  timestamps by `updated_by`, and skip stale updates (the 0004 migration
+  supplies `now()` only for an explicit NULL). An exactly equal timestamp and
+  writer is treated as the existing version because no further sequence exists.
 - `audit_transactions` / `audit_budgets` — AFTER INSERT/UPDATE/DELETE triggers
   that write one `audit_log` row per change (`old_values`/`new_values` via
   `to_jsonb`, `changed_by = auth.uid()`).
 
-## Realtime publication (0003)
+## Realtime publication (0003) and version ordering (0004)
 
 `0003_realtime_publication.sql` adds `public.transactions` and `public.budgets`
 to the managed `supabase_realtime` publication and sets `REPLICA IDENTITY FULL`.
-The latter keeps `household_id` and `updated_at` in DELETE payloads so the
-household-scoped client subscription can apply the same last-write-wins check
-as INSERT/UPDATE events. The migration checks `pg_publication_tables` before
-adding each table, so it is safe to rerun and does not require a dashboard-only
-configuration step.
+The latter requests old-row values for UPDATE/DELETE events, but Supabase
+documents that RLS-protected DELETE payloads may still contain only the
+primary key(s), and DELETE events cannot be filtered. The sync engine therefore
+subscribes to INSERT/UPDATE with the household filter, subscribes to DELETE
+without a filter, and re-fetches incomplete DELETEs through the authenticated
+household-scoped SELECT before mutating Dexie. A complete DELETE payload still
+uses the version-aware LWW path. The migration checks `pg_publication_tables`
+before adding each table, so it is safe to rerun and does not require a
+dashboard-only configuration step.
+
+`0004_sync_version_ordering.sql` is a forward migration for environments where
+an earlier `0003` was already applied. It updates the shared timestamp trigger
+to compare `updated_by` when timestamps tie and skips stale writes. Fresh
+installs must apply both migrations in numeric order.
 
 ## How to apply
 
 > Apply the migrations in numeric order to each Supabase project. Existing
-> environments that already have `0001` and `0002` only need `0003`.
+> environments that already have `0001` and `0002` need both `0003` and `0004`.
+> Environments that already applied an earlier `0003` need `0004` as the
+> forward trigger update.
 
 ### Option A — Supabase Studio SQL Editor (simplest)
 
 1. Open your Supabase project → **SQL Editor** → **New query**.
 2. Run `0001_init.sql`, then `0002_auto_stamp_defaults.sql`, then
-   `0003_realtime_publication.sql` in order.
+   `0003_realtime_publication.sql`, and finally `0004_sync_version_ordering.sql`
+   in order.
 3. Click **Run** after each migration. The migrations are safe to re-run where
    their SQL comments/documentation say they are idempotent.
 

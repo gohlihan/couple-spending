@@ -2,6 +2,12 @@ import { liveQuery } from 'dexie';
 import { useEffect, useState } from 'react';
 import { db, type Budget, type PendingChange, type Transaction } from './db';
 import { supabase } from './supabase';
+import { parseRealtimeDelete } from './realtime-delete';
+import { hasUnresolvedEarlierChange, queueChangeKey } from './sync-queue';
+import { compareVersions, observeUpdatedAt, type VersionStamp } from './version';
+
+export { hasUnresolvedEarlierChange } from './sync-queue';
+export { compareUpdatedAt, compareVersions } from './version';
 
 /** The bounded retry cadence used while a household is open. */
 export const SYNC_INTERVAL_MS = 30_000;
@@ -11,9 +17,33 @@ const TRANSACTION_COLUMNS =
   'id, household_id, amount, spent_at, note, chip, created_by, created_at, updated_at, updated_by, deleted_at, deleted_by, client_id';
 const BUDGET_COLUMNS = 'id, household_id, amount, updated_at, updated_by';
 
+const TRANSACTION_UPSERT_FIELDS = [
+  'id',
+  'household_id',
+  'amount',
+  'spent_at',
+  'note',
+  'chip',
+  'created_by',
+  'created_at',
+  'updated_at',
+  'updated_by',
+  'deleted_at',
+  'deleted_by',
+  'client_id',
+] as const;
+const TRANSACTION_UPDATE_FIELDS = TRANSACTION_UPSERT_FIELDS.filter(
+  (field) => !['id', 'household_id', 'client_id'].includes(field),
+);
+
 type SyncTable = 'transactions' | 'budgets';
 type RemoteRecord = Record<string, unknown>;
 type RealtimeEvent = 'INSERT' | 'UPDATE' | 'DELETE';
+
+type PostgrestDeleteResult = {
+  data: Array<{ id: string }> | null;
+  error: unknown;
+};
 
 export type SyncStatusName = 'synced' | 'pending' | 'needs attention';
 
@@ -48,23 +78,22 @@ function asAmount(value: unknown): number | null {
   return Number.isFinite(amount) ? amount : null;
 }
 
-/**
- * Compare ISO timestamps without losing sub-millisecond precision returned by
- * Postgres. Supabase returns UTC timestamps, so lexical comparison is a safe
- * tie-breaker after Date.parse compares the millisecond portion.
- */
-export function compareUpdatedAt(left: string | null, right: string | null): number {
-  if (!left && !right) return 0;
-  if (!left) return -1;
-  if (!right) return 1;
+function versionOf(row: VersionStamp): VersionStamp {
+  return {
+    updated_at: row.updated_at ?? null,
+    updated_by: row.updated_by ?? null,
+  };
+}
 
-  const leftMillis = Date.parse(left);
-  const rightMillis = Date.parse(right);
-  if (Number.isFinite(leftMillis) && Number.isFinite(rightMillis) && leftMillis !== rightMillis) {
-    return leftMillis > rightMillis ? 1 : -1;
+function payloadVersion(payload: unknown): VersionStamp {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return { updated_at: null, updated_by: null };
   }
-  if (left === right) return 0;
-  return left > right ? 1 : -1;
+  const record = payload as RemoteRecord;
+  return {
+    updated_at: asString(record.updated_at),
+    updated_by: asString(record.updated_by),
+  };
 }
 
 function toTransaction(row: RemoteRecord, householdId: string): Transaction | null {
@@ -78,6 +107,8 @@ function toTransaction(row: RemoteRecord, householdId: string): Transaction | nu
     return null;
   }
 
+  const clientId = asString(row.client_id);
+  observeUpdatedAt(updatedAt ?? createdAt);
   return {
     id,
     household_id: householdId,
@@ -90,12 +121,14 @@ function toTransaction(row: RemoteRecord, householdId: string): Transaction | nu
     created_by: asString(row.created_by) ?? '',
     created_at: createdAt,
     updated_at: updatedAt ?? createdAt,
-    updated_by: asString(row.updated_by) ?? '',
+    updated_by: asString(row.updated_by),
     deleted_at: asString(row.deleted_at),
     deleted_by: asString(row.deleted_by),
-    // Existing rows predating client_id remain readable. They are not used as
-    // a new queue payload until a later edit supplies a real client id.
-    client_id: asString(row.client_id) ?? id,
+    // Dexie needs a stable local index key even for legacy server rows whose
+    // client_id is NULL. The marker prevents that local fallback from being
+    // sent back as a server id during an update.
+    client_id: clientId ?? id,
+    legacy_client_id: clientId === null,
   };
 }
 
@@ -106,12 +139,13 @@ function toBudget(row: RemoteRecord, householdId: string): Budget | null {
   const updatedAt = asString(row.updated_at);
   if (!id || rowHouseholdId !== householdId || amount === null || !updatedAt) return null;
 
+  observeUpdatedAt(updatedAt);
   return {
     id,
     household_id: householdId,
     amount,
     updated_at: updatedAt,
-    updated_by: asString(row.updated_by) ?? '',
+    updated_by: asString(row.updated_by),
   };
 }
 
@@ -122,20 +156,33 @@ function payloadObject(payload: unknown): RemoteRecord {
   return payload as RemoteRecord;
 }
 
-function payloadUpdatedAt(change: PendingChange): string | null {
-  if (!change.payload || typeof change.payload !== 'object' || Array.isArray(change.payload)) {
-    return null;
+function pickFields(payload: RemoteRecord, fields: readonly string[]): RemoteRecord {
+  const picked: RemoteRecord = {};
+  for (const field of fields) {
+    if (field in payload) picked[field] = payload[field];
   }
-  return asString((change.payload as RemoteRecord).updated_at);
+  return picked;
 }
 
-function pendingProtectsRemote(changes: PendingChange[], remoteUpdatedAt: string | null): boolean {
+function transactionUpsertPayload(payload: RemoteRecord): RemoteRecord {
+  return pickFields(payload, TRANSACTION_UPSERT_FIELDS);
+}
+
+function transactionUpdatePayload(payload: RemoteRecord): RemoteRecord {
+  return pickFields(payload, TRANSACTION_UPDATE_FIELDS);
+}
+
+function budgetPayload(payload: RemoteRecord): RemoteRecord {
+  return pickFields(payload, ['id', 'household_id', 'amount', 'updated_at', 'updated_by']);
+}
+
+function pendingProtectsRemote(changes: PendingChange[], remote: VersionStamp): boolean {
   return changes.some((change) => {
-    // A delete without a row payload has no timestamp to compare. Keeping the
+    const queued = payloadVersion(change.payload);
+    // A delete without a version has no safe conditional target. Keeping the
     // local row is safer than letting a reconnect erase an offline operation.
-    if (change.op === 'delete' && !payloadUpdatedAt(change)) return true;
-    const queuedUpdatedAt = payloadUpdatedAt(change);
-    return queuedUpdatedAt !== null && compareUpdatedAt(queuedUpdatedAt, remoteUpdatedAt) >= 0;
+    if (change.op === 'delete' && !queued.updated_at) return true;
+    return queued.updated_at !== null && compareVersions(queued, remote) >= 0;
   });
 }
 
@@ -162,12 +209,12 @@ function groupedPendingChanges(changes: PendingChange[]): Map<string, PendingCha
 }
 
 function shouldApplyRemote(
-  remoteUpdatedAt: string,
-  localUpdatedAt: string | null,
+  remote: VersionStamp,
+  local: VersionStamp | null,
   pending: PendingChange[],
 ): boolean {
-  if (pendingProtectsRemote(pending, remoteUpdatedAt)) return false;
-  return localUpdatedAt === null || compareUpdatedAt(remoteUpdatedAt, localUpdatedAt) > 0;
+  if (pendingProtectsRemote(pending, remote)) return false;
+  return local === null || compareVersions(remote, local) > 0;
 }
 
 class SyncEngine {
@@ -177,6 +224,7 @@ class SyncEngine {
   private channel: ReturnType<typeof supabase.channel> | null = null;
   private intervalId: number | null = null;
   private drainPromise: Promise<void> | null = null;
+  private hydratePromise: Promise<void> | null = null;
   private drainRequested = false;
   private started = false;
   private stopped = false;
@@ -213,7 +261,8 @@ class SyncEngine {
       if (browserIsOnline()) void this.drain();
     }, SYNC_INTERVAL_MS);
 
-    if (browserIsOnline()) await this.hydrateAndDrain();
+    await this.cleanupSyncedChanges();
+    if (!this.stopped && browserIsOnline()) await this.hydrateAndDrain();
   }
 
   stop(): void {
@@ -247,46 +296,109 @@ class SyncEngine {
     console.warn('Sync engine request failed.', message);
   }
 
+  private reportReconciliationError(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('Sync engine write committed but local reconciliation failed.', message);
+  }
+
   private clearError(): void {
     if (this.state.hasError) this.publish({ hasError: false });
   }
 
+  private async cleanupSyncedChanges(): Promise<void> {
+    if (this.stopped) return;
+    try {
+      await db.pendingChanges.where('status').equals('synced').delete();
+    } catch (error: unknown) {
+      this.reportError(error);
+    }
+  }
+
   private startRealtime(): void {
     const householdFilter = `household_id=eq.${this.householdId}`;
+    const handlePayload = (
+      table: SyncTable,
+      payload: {
+        eventType: RealtimeEvent;
+        new: RemoteRecord;
+        old: RemoteRecord;
+      },
+    ) => {
+      void this.handleRealtimeChange(table, payload.eventType, payload).catch((error) =>
+        this.reportError(error),
+      );
+    };
+
+    // Supabase does not support DELETE filters. Keep INSERT/UPDATE scoped at
+    // the subscription layer, then use the authenticated SELECT fallback for
+    // DELETE payloads that lack household_id or version columns under RLS.
     this.channel = supabase
       .channel(`household-sync:${this.householdId}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'transactions',
           filter: householdFilter,
         },
-        (payload) => {
-          void this.handleRealtimeChange('transactions', payload.eventType, payload).catch(
-            (error) => this.reportError(error),
-          );
-        },
+        (payload) => handlePayload('transactions', payload),
       )
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'transactions',
+          filter: householdFilter,
+        },
+        (payload) => handlePayload('transactions', payload),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'transactions',
+        },
+        (payload) => handlePayload('transactions', payload),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
           schema: 'public',
           table: 'budgets',
           filter: householdFilter,
         },
-        (payload) => {
-          void this.handleRealtimeChange('budgets', payload.eventType, payload).catch((error) =>
-            this.reportError(error),
-          );
+        (payload) => handlePayload('budgets', payload),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'budgets',
+          filter: householdFilter,
         },
+        (payload) => handlePayload('budgets', payload),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'budgets',
+        },
+        (payload) => handlePayload('budgets', payload),
       )
       .subscribe((status) => {
         if (this.stopped) return;
         if (status === 'SUBSCRIBED') {
           this.publish({ realtimeConnected: true });
+          // Realtime can reconnect without delivering events that happened
+          // while the channel was down, so reconcile a complete snapshot.
+          void this.hydrateAndDrain();
           // A successful rejoin resolves a transient channel error; retained
           // failed queue entries still keep the status at needs attention.
           this.clearError();
@@ -305,7 +417,24 @@ class SyncEngine {
     if (!this.stopped && browserIsOnline()) await this.drain();
   }
 
-  private async hydrate(): Promise<void> {
+  private hydrate(): Promise<void> {
+    if (this.stopped || !browserIsOnline()) return Promise.resolve();
+    if (this.hydratePromise) return this.hydratePromise;
+
+    const runHydration = async () => {
+      // A drain that began just before this snapshot request must finish first;
+      // otherwise its queue row could be removed before the stale snapshot's
+      // local reconciliation reads pending_changes.
+      while (this.drainPromise && !this.stopped) await this.drainPromise;
+      if (!this.stopped && browserIsOnline()) await this.performHydrate();
+    };
+    this.hydratePromise = runHydration().finally(() => {
+      this.hydratePromise = null;
+    });
+    return this.hydratePromise;
+  }
+
+  private async performHydrate(): Promise<void> {
     if (this.stopped || !browserIsOnline()) return;
     this.publish({ hydrating: true });
 
@@ -331,6 +460,7 @@ class SyncEngine {
       const remoteBudget = budgetResult.data
         ? toBudget(budgetResult.data as RemoteRecord, this.householdId)
         : null;
+      const remoteTransactionIds = new Set(remoteTransactions.map((row) => row.id));
 
       await db.transaction('rw', db.transactions, db.budgets, db.pendingChanges, async () => {
         const localTransactions = await db.transactions
@@ -343,34 +473,55 @@ class SyncEngine {
           .equals(this.householdId)
           .filter((change) => change.status === 'pending' || change.status === 'failed')
           .toArray();
+        if (this.stopped) return;
+
         const localById = new Map(localTransactions.map((row) => [row.id, row]));
         const pendingByRecord = groupedPendingChanges(pending);
 
         for (const remote of remoteTransactions) {
+          if (this.stopped) return;
           const local = localById.get(remote.id);
           const rowPending = pendingByRecord.get(`transactions:${remote.id}`) ?? [];
-          if (shouldApplyRemote(remote.updated_at, local?.updated_at ?? null, rowPending)) {
+          if (shouldApplyRemote(versionOf(remote), local ? versionOf(local) : null, rowPending)) {
             await db.transactions.put(remote);
           }
         }
 
-        if (remoteBudget) {
-          const budgetPending = pending.filter((change) => change.table === 'budgets');
+        // The query is a complete household snapshot. Remove stale local rows
+        // only when no pending/failed operation protects that record.
+        for (const local of localTransactions) {
+          if (this.stopped) return;
           if (
-            shouldApplyRemote(
-              remoteBudget.updated_at,
-              localBudget?.updated_at ?? null,
+            !remoteTransactionIds.has(local.id) &&
+            !(pendingByRecord.get(`transactions:${local.id}`)?.length ?? 0)
+          ) {
+            await db.transactions.delete(local.id);
+          }
+        }
+
+        const budgetPending = pending.filter((change) => change.table === 'budgets');
+        if (remoteBudget) {
+          const protectedBudget = pendingProtectsRemote(budgetPending, versionOf(remoteBudget));
+          if (
+            !this.stopped &&
+            !protectedBudget &&
+            (shouldApplyRemote(
+              versionOf(remoteBudget),
+              localBudget ? versionOf(localBudget) : null,
               budgetPending,
-            )
+            ) ||
+              localBudget?.id !== remoteBudget.id)
           ) {
             if (localBudget && localBudget.id !== remoteBudget.id) {
               await db.budgets.delete(localBudget.id);
             }
-            await db.budgets.put(remoteBudget);
+            if (!this.stopped) await db.budgets.put(remoteBudget);
           }
+        } else if (localBudget && budgetPending.length === 0 && !this.stopped) {
+          await db.budgets.delete(localBudget.id);
         }
       });
-      this.clearError();
+      if (!this.stopped) this.clearError();
     } catch (error: unknown) {
       this.reportError(error);
     } finally {
@@ -381,6 +532,10 @@ class SyncEngine {
   private async drain(): Promise<void> {
     if (this.stopped || !browserIsOnline()) return;
     this.drainRequested = true;
+    if (this.hydratePromise) {
+      await this.hydratePromise;
+      if (this.stopped || !browserIsOnline()) return;
+    }
     if (this.state.hydrating) return;
     if (this.drainPromise) return this.drainPromise;
 
@@ -407,6 +562,7 @@ class SyncEngine {
   }
 
   private async drainQueue(): Promise<void> {
+    if (this.stopped || !browserIsOnline()) return;
     const changes = await db.pendingChanges
       .where('household_id')
       .equals(this.householdId)
@@ -417,21 +573,46 @@ class SyncEngine {
         left.created_at.localeCompare(right.created_at) ||
         left.client_id.localeCompare(right.client_id),
     );
+    const supersededIds = await this.dropChangesSupersededByDelete(changes);
+    if (this.stopped || !browserIsOnline()) return;
 
     let failed = false;
+    let delivered = false;
+    const resolvedIds = new Set(supersededIds);
+    const blockedKeys = new Set<string>();
     for (const change of changes) {
+      if (resolvedIds.has(change.client_id)) continue;
       if (this.stopped || !browserIsOnline()) break;
-      if (!isRetryEligible(change)) continue;
+
+      const key = queueChangeKey(change);
+      // Do not let an update overtake a failed/backing-off insert (or any
+      // earlier same-record write). A missing remote row is only authoritative
+      // once all earlier dependencies have been delivered or superseded by a
+      // later delete.
+      if (blockedKeys.has(key) || hasUnresolvedEarlierChange(changes, change, resolvedIds)) {
+        blockedKeys.add(key);
+        continue;
+      }
+      if (!isRetryEligible(change)) {
+        blockedKeys.add(key);
+        continue;
+      }
       try {
-        // Keep the queue row until the remote call succeeds. A later edit gets
-        // its own row, so retrying this failed entry cannot hide newer data.
         if (change.status === 'failed') {
           await db.pendingChanges.update(change.client_id, { status: 'pending' });
+          if (this.stopped) break;
         }
         await this.pushChange(change);
-        await db.pendingChanges.update(change.client_id, { status: 'synced' });
+        if (this.stopped || !browserIsOnline()) break;
+        // A delivered/conflict-resolved row has no future retry value. Keeping
+        // it would make the durable queue grow forever and obscure new edits.
+        await db.pendingChanges.delete(change.client_id);
+        resolvedIds.add(change.client_id);
+        delivered = true;
       } catch (error: unknown) {
+        if (this.stopped || !browserIsOnline()) break;
         failed = true;
+        blockedKeys.add(key);
         await db.pendingChanges.update(change.client_id, {
           status: 'failed',
           attempts: change.attempts + 1,
@@ -441,7 +622,32 @@ class SyncEngine {
       }
     }
 
-    if (!failed && browserIsOnline()) this.clearError();
+    // An empty drain must not hide a real hydration/realtime error. A network
+    // write or conflict resolution can clear the error after it succeeds.
+    if (!failed && delivered && browserIsOnline()) this.clearError();
+  }
+
+  private async dropChangesSupersededByDelete(changes: PendingChange[]): Promise<Set<string>> {
+    const latestDelete = new Map<string, PendingChange>();
+    for (const change of changes) {
+      if (change.op === 'delete') {
+        latestDelete.set(`${change.table}:${change.record_id}`, change);
+      }
+    }
+
+    const superseded = changes.filter((change) => {
+      const deleteChange = latestDelete.get(`${change.table}:${change.record_id}`);
+      if (!deleteChange || deleteChange.client_id === change.client_id) return false;
+      return (
+        change.created_at.localeCompare(deleteChange.created_at) < 0 ||
+        (change.created_at === deleteChange.created_at &&
+          change.client_id.localeCompare(deleteChange.client_id) < 0)
+      );
+    });
+    if (superseded.length === 0 || this.stopped) return new Set();
+    const supersededIds = new Set(superseded.map((change) => change.client_id));
+    await db.pendingChanges.bulkDelete([...supersededIds]);
+    return supersededIds;
   }
 
   private async pushChange(change: PendingChange): Promise<void> {
@@ -450,53 +656,78 @@ class SyncEngine {
     }
 
     const payload = payloadObject(change.payload);
-    if (payload.household_id !== this.householdId) {
+    const payloadHouseholdId = asString(payload.household_id);
+    if (payloadHouseholdId && payloadHouseholdId !== this.householdId) {
       throw new Error('Queued sync payload is outside the active household');
+    }
+    if (!payloadHouseholdId && change.op !== 'delete') {
+      throw new Error('Queued sync payload has no household id');
     }
 
     if (change.table === 'transactions') {
+      if (change.op === 'delete') {
+        await this.pushTransactionDelete(change, payload);
+        return;
+      }
+
       const transaction = toTransaction(payload, this.householdId);
       if (!transaction) throw new Error('Queued transaction payload is invalid');
       const remote = await this.fetchRemoteTransaction(change.record_id);
-      if (remote && compareUpdatedAt(remote.updated_at, transaction.updated_at) > 0) {
+      if (this.stopped) return;
+      if (remote && compareVersions(versionOf(remote), versionOf(transaction)) > 0) {
         await this.mergeRemoteTransaction(remote);
         return;
       }
 
-      if (change.op === 'delete' && !asString(payload.client_id)) {
-        const { error } = await supabase
+      if (!remote && change.op === 'update') {
+        // Without a tombstone table, a missing row is an authoritative remote
+        // delete. Do not resurrect it with a stale update payload.
+        await this.removeLocalTransactionAfterResolution(
+          change.record_id,
+          versionOf(transaction),
+          change.client_id,
+        );
+        return;
+      }
+
+      if (remote?.legacy_client_id) {
+        // Legacy rows have client_id NULL on the server. Updating by primary id
+        // avoids inventing a historical client_id and accidentally inserting a
+        // duplicate through ON CONFLICT (client_id).
+        let request = supabase
           .from('transactions')
-          .delete()
+          .update(transactionUpdatePayload(payload))
           .eq('household_id', this.householdId)
-          .eq('id', change.record_id);
+          .eq('id', change.record_id)
+          .eq('updated_at', remote.updated_at);
+        request = remote.updated_by
+          ? request.eq('updated_by', remote.updated_by)
+          : request.is('updated_by', null);
+        const { error } = await request;
         if (error) throw error;
+        await this.reconcileTransaction(change);
         return;
       }
 
       const { error } = await supabase
         .from('transactions')
-        .upsert(payload, { onConflict: 'client_id' });
+        .upsert(transactionUpsertPayload(payload), { onConflict: 'client_id' });
       if (error) throw error;
-      const storedTransaction = await this.fetchRemoteTransaction(transaction.id);
-      if (storedTransaction) await this.mergeRemoteTransaction(storedTransaction);
+      await this.reconcileTransaction(change);
+      return;
+    }
+
+    if (change.op === 'delete') {
+      await this.pushBudgetDelete(change, payload);
       return;
     }
 
     const budget = toBudget(payload, this.householdId);
     if (!budget) throw new Error('Queued budget payload is invalid');
     const remote = await this.fetchRemoteBudget();
-    if (remote && compareUpdatedAt(remote.updated_at, budget.updated_at) > 0) {
+    if (this.stopped) return;
+    if (remote && compareVersions(versionOf(remote), versionOf(budget)) > 0) {
       await this.mergeRemoteBudget(remote);
-      return;
-    }
-
-    if (change.op === 'delete') {
-      const { error } = await supabase
-        .from('budgets')
-        .delete()
-        .eq('household_id', this.householdId)
-        .eq('id', change.record_id);
-      if (error) throw error;
       return;
     }
 
@@ -504,10 +735,136 @@ class SyncEngine {
     // after a cold start, so never use the local budget id as the conflict key.
     const { error } = await supabase
       .from('budgets')
-      .upsert(payload, { onConflict: 'household_id' });
+      .upsert(budgetPayload(payload), { onConflict: 'household_id' });
     if (error) throw error;
-    const storedBudget = await this.fetchRemoteBudget();
-    if (storedBudget) await this.mergeRemoteBudget(storedBudget);
+    await this.reconcileBudget();
+  }
+
+  private async pushTransactionDelete(change: PendingChange, payload: RemoteRecord): Promise<void> {
+    const requestedVersion = payloadVersion(payload);
+    const remote = await this.fetchRemoteTransaction(change.record_id);
+    if (this.stopped) return;
+    if (!remote) {
+      await this.removeLocalTransactionAfterResolution(
+        change.record_id,
+        requestedVersion.updated_at ? requestedVersion : null,
+        change.client_id,
+      );
+      return;
+    }
+
+    if (requestedVersion.updated_at && compareVersions(versionOf(remote), requestedVersion) > 0) {
+      await this.mergeRemoteTransaction(remote);
+      return;
+    }
+
+    // A minimal delete payload can omit the version. In that case the fetched
+    // row supplies the conditional target, preventing a concurrent update from
+    // being deleted after the read.
+    const expectedVersion = requestedVersion.updated_at ? requestedVersion : versionOf(remote);
+    const deleted = await this.deleteTransactionConditionally(change.record_id, expectedVersion);
+    if (this.stopped) return;
+    if (!deleted) {
+      const latest = await this.fetchRemoteTransaction(change.record_id);
+      if (this.stopped) return;
+      if (latest) await this.mergeRemoteTransaction(latest);
+      else
+        await this.removeLocalTransactionAfterResolution(change.record_id, null, change.client_id);
+      return;
+    }
+    await this.removeLocalTransactionAfterResolution(
+      change.record_id,
+      expectedVersion,
+      change.client_id,
+    );
+  }
+
+  private async pushBudgetDelete(change: PendingChange, payload: RemoteRecord): Promise<void> {
+    const requestedVersion = payloadVersion(payload);
+    const remote = await this.fetchRemoteBudget();
+    if (this.stopped) return;
+    if (!remote) {
+      await this.removeLocalBudgetAfterResolution(
+        requestedVersion.updated_at ? requestedVersion : null,
+        change.client_id,
+      );
+      return;
+    }
+
+    if (requestedVersion.updated_at && compareVersions(versionOf(remote), requestedVersion) > 0) {
+      await this.mergeRemoteBudget(remote);
+      return;
+    }
+
+    const expectedVersion = requestedVersion.updated_at ? requestedVersion : versionOf(remote);
+    const deleted = await this.deleteBudgetConditionally(expectedVersion);
+    if (this.stopped) return;
+    if (!deleted) {
+      const latest = await this.fetchRemoteBudget();
+      if (this.stopped) return;
+      if (latest) await this.mergeRemoteBudget(latest);
+      else await this.removeLocalBudgetAfterResolution(null, change.client_id);
+      return;
+    }
+    await this.removeLocalBudgetAfterResolution(expectedVersion, change.client_id);
+  }
+
+  private async deleteTransactionConditionally(
+    recordId: string,
+    expected: VersionStamp,
+  ): Promise<boolean> {
+    let request = supabase
+      .from('transactions')
+      .delete()
+      .eq('household_id', this.householdId)
+      .eq('id', recordId);
+    if (expected.updated_at) request = request.eq('updated_at', expected.updated_at);
+    if (expected.updated_by) request = request.eq('updated_by', expected.updated_by);
+    else request = request.is('updated_by', null);
+    const result = (await request.select('id')) as PostgrestDeleteResult;
+    if (result.error) throw result.error;
+    return (result.data?.length ?? 0) > 0;
+  }
+
+  private async deleteBudgetConditionally(expected: VersionStamp): Promise<boolean> {
+    let request = supabase.from('budgets').delete().eq('household_id', this.householdId);
+    if (expected.updated_at) request = request.eq('updated_at', expected.updated_at);
+    if (expected.updated_by) request = request.eq('updated_by', expected.updated_by);
+    else request = request.is('updated_by', null);
+    const result = (await request.select('id')) as PostgrestDeleteResult;
+    if (result.error) throw result.error;
+    return (result.data?.length ?? 0) > 0;
+  }
+
+  private async reconcileTransaction(change: PendingChange): Promise<void> {
+    if (this.stopped) return;
+    try {
+      const stored = await this.fetchRemoteTransaction(change.record_id);
+      if (this.stopped) return;
+      if (stored) await this.mergeRemoteTransaction(stored);
+      else if (change.op === 'update') {
+        await this.removeLocalTransactionAfterResolution(
+          change.record_id,
+          payloadVersion(change.payload),
+          change.client_id,
+        );
+      }
+    } catch (error: unknown) {
+      // The upsert/update already committed. Do not retain the queue row just
+      // because this optional read or local merge failed.
+      this.reportReconciliationError(error);
+    }
+  }
+
+  private async reconcileBudget(): Promise<void> {
+    if (this.stopped) return;
+    try {
+      const stored = await this.fetchRemoteBudget();
+      if (this.stopped) return;
+      if (stored) await this.mergeRemoteBudget(stored);
+    } catch (error: unknown) {
+      this.reportReconciliationError(error);
+    }
   }
 
   private async fetchRemoteTransaction(recordId: string): Promise<Transaction | null> {
@@ -521,17 +878,85 @@ class SyncEngine {
     return data ? toTransaction(data as RemoteRecord, this.householdId) : null;
   }
 
-  private async fetchRemoteBudget(): Promise<Budget | null> {
-    const { data, error } = await supabase
+  private async fetchRemoteBudget(recordId?: string): Promise<Budget | null> {
+    let request = supabase
       .from('budgets')
       .select(BUDGET_COLUMNS)
-      .eq('household_id', this.householdId)
-      .maybeSingle();
+      .eq('household_id', this.householdId);
+    if (recordId) request = request.eq('id', recordId);
+    const { data, error } = await request.maybeSingle();
     if (error) throw error;
     return data ? toBudget(data as RemoteRecord, this.householdId) : null;
   }
 
+  private async removeLocalTransactionAfterResolution(
+    recordId: string,
+    resolvedVersion: VersionStamp | null,
+    currentChangeId: string,
+  ): Promise<void> {
+    if (this.stopped) return;
+    await db.transaction('rw', db.transactions, db.pendingChanges, async () => {
+      const local = await db.transactions
+        .where('id')
+        .equals(recordId)
+        .filter((row) => row.household_id === this.householdId)
+        .first();
+      const active = await db.pendingChanges
+        .where('household_id')
+        .equals(this.householdId)
+        .filter(
+          (change) =>
+            change.client_id !== currentChangeId &&
+            change.table === 'transactions' &&
+            change.record_id === recordId &&
+            (change.status === 'pending' || change.status === 'failed'),
+        )
+        .toArray();
+      if (this.stopped || !local) return;
+      const localIsNewer =
+        resolvedVersion !== null && compareVersions(versionOf(local), resolvedVersion) > 0;
+      const newerPending = active.some((change) => {
+        const queued = payloadVersion(change.payload);
+        return !queued.updated_at || resolvedVersion === null
+          ? true
+          : compareVersions(queued, resolvedVersion) > 0;
+      });
+      if (!localIsNewer && !newerPending && !this.stopped) await db.transactions.delete(recordId);
+    });
+  }
+
+  private async removeLocalBudgetAfterResolution(
+    resolvedVersion: VersionStamp | null,
+    currentChangeId: string,
+  ): Promise<void> {
+    if (this.stopped) return;
+    await db.transaction('rw', db.budgets, db.pendingChanges, async () => {
+      const local = await db.budgets.where('household_id').equals(this.householdId).first();
+      const active = await db.pendingChanges
+        .where('household_id')
+        .equals(this.householdId)
+        .filter(
+          (change) =>
+            change.client_id !== currentChangeId &&
+            change.table === 'budgets' &&
+            (change.status === 'pending' || change.status === 'failed'),
+        )
+        .toArray();
+      if (this.stopped || !local) return;
+      const localIsNewer =
+        resolvedVersion !== null && compareVersions(versionOf(local), resolvedVersion) > 0;
+      const newerPending = active.some((change) => {
+        const queued = payloadVersion(change.payload);
+        return !queued.updated_at || resolvedVersion === null
+          ? true
+          : compareVersions(queued, resolvedVersion) > 0;
+      });
+      if (!localIsNewer && !newerPending && !this.stopped) await db.budgets.delete(local.id);
+    });
+  }
+
   private async mergeRemoteTransaction(remote: Transaction): Promise<void> {
+    if (this.stopped) return;
     await db.transaction('rw', db.transactions, db.pendingChanges, async () => {
       const local = await db.transactions
         .where('id')
@@ -548,13 +973,15 @@ class SyncEngine {
             (change.status === 'pending' || change.status === 'failed'),
         )
         .toArray();
-      if (shouldApplyRemote(remote.updated_at, local?.updated_at ?? null, pending)) {
+      if (this.stopped) return;
+      if (shouldApplyRemote(versionOf(remote), local ? versionOf(local) : null, pending)) {
         await db.transactions.put(remote);
       }
     });
   }
 
   private async mergeRemoteBudget(remote: Budget): Promise<void> {
+    if (this.stopped) return;
     await db.transaction('rw', db.budgets, db.pendingChanges, async () => {
       const local = await db.budgets.where('household_id').equals(this.householdId).first();
       const pending = await db.pendingChanges
@@ -566,9 +993,10 @@ class SyncEngine {
             (change.status === 'pending' || change.status === 'failed'),
         )
         .toArray();
-      if (shouldApplyRemote(remote.updated_at, local?.updated_at ?? null, pending)) {
+      if (this.stopped) return;
+      if (shouldApplyRemote(versionOf(remote), local ? versionOf(local) : null, pending)) {
         if (local && local.id !== remote.id) await db.budgets.delete(local.id);
-        await db.budgets.put(remote);
+        if (!this.stopped) await db.budgets.put(remote);
       }
     });
   }
@@ -583,13 +1011,20 @@ class SyncEngine {
   ): Promise<void> {
     if (this.stopped) return;
     const row = event === 'DELETE' ? payload.old : payload.new;
-    if (asString(row.household_id) !== this.householdId) return;
+    const payloadHouseholdId = asString(row.household_id);
+
+    // DELETE filters are unsupported, so DELETE callbacks can contain events
+    // from outside this household. A scoped payload can be rejected directly;
+    // an RLS payload with only an id is checked by the authenticated refetch in
+    // applyRemoteDelete before any local row is changed.
+    if (payloadHouseholdId && payloadHouseholdId !== this.householdId) return;
 
     if (event === 'DELETE') {
       await this.applyRemoteDelete(table, row);
       return;
     }
 
+    if (payloadHouseholdId !== this.householdId) return;
     if (table === 'transactions') {
       const remote = toTransaction(row, this.householdId);
       if (remote) await this.mergeRemoteTransaction(remote);
@@ -600,9 +1035,46 @@ class SyncEngine {
   }
 
   private async applyRemoteDelete(table: SyncTable, row: RemoteRecord): Promise<void> {
-    const recordId = asString(row.id);
-    if (!recordId) return;
-    const remoteUpdatedAt = asString(row.updated_at);
+    const deleteInfo = parseRealtimeDelete(row);
+    const recordId = deleteInfo.recordId;
+    if (!recordId || this.stopped) return;
+
+    // RLS-protected DELETE payloads may contain only the primary key. Re-fetch
+    // through the household-scoped SELECT policy before touching local data.
+    // This also avoids applying a stale delete to a newer row that was
+    // recreated after the event was emitted.
+    if (deleteInfo.requiresRefetch) {
+      if (table === 'transactions') {
+        const current = await this.fetchRemoteTransaction(recordId);
+        if (this.stopped) return;
+        if (current) {
+          await this.mergeRemoteTransaction(current);
+          return;
+        }
+      } else {
+        // Prefer the event's primary key so an unfiltered DELETE from another
+        // household cannot be mistaken for this household's budget. A local
+        // budget id can differ while an offline budget upsert is pending, so a
+        // household snapshot is the conservative fallback before local delete.
+        const currentById = await this.fetchRemoteBudget(recordId);
+        if (this.stopped) return;
+        if (currentById) {
+          await this.mergeRemoteBudget(currentById);
+          return;
+        }
+        const current = await this.fetchRemoteBudget();
+        if (this.stopped) return;
+        if (current) {
+          await this.mergeRemoteBudget(current);
+          return;
+        }
+      }
+    }
+
+    const remote = {
+      updated_at: deleteInfo.updatedAt,
+      updated_by: deleteInfo.updatedBy,
+    };
 
     if (table === 'transactions') {
       await db.transaction('rw', db.transactions, db.pendingChanges, async () => {
@@ -621,12 +1093,14 @@ class SyncEngine {
               (change.status === 'pending' || change.status === 'failed'),
           )
           .toArray();
+        if (this.stopped) return;
         if (
           local &&
-          !pendingProtectsRemote(pending, remoteUpdatedAt) &&
-          // A DELETE carries the row's last version timestamp rather than a
-          // new one, so equality is still an authoritative server deletion.
-          (remoteUpdatedAt === null || compareUpdatedAt(remoteUpdatedAt, local.updated_at) >= 0)
+          !pendingProtectsRemote(pending, remote) &&
+          // DELETE carries the row's last version timestamp rather than a new
+          // one, so equality remains an authoritative server deletion.
+          (remote.updated_at === null || compareVersions(remote, versionOf(local)) >= 0) &&
+          !this.stopped
         ) {
           await db.transactions.delete(recordId);
         }
@@ -645,12 +1119,12 @@ class SyncEngine {
             (change.status === 'pending' || change.status === 'failed'),
         )
         .toArray();
+      if (this.stopped) return;
       if (
         local &&
-        !pendingProtectsRemote(pending, remoteUpdatedAt) &&
-        // A DELETE carries the row's last version timestamp rather than a
-        // new one, so equality is still an authoritative server deletion.
-        (remoteUpdatedAt === null || compareUpdatedAt(remoteUpdatedAt, local.updated_at) >= 0)
+        !pendingProtectsRemote(pending, remote) &&
+        (remote.updated_at === null || compareVersions(remote, versionOf(local)) >= 0) &&
+        !this.stopped
       ) {
         await db.budgets.delete(local.id);
       }

@@ -22,7 +22,7 @@ This plan references it but does not repeat the rationale.
 | 3 — Add-transaction form | #4 | ✅ **DONE** (PR #14 merged) | `feat/issue-4-add-transaction` → [PR #14](https://github.com/gohlihan/couple-spending/pull/14) |
 | 4 — Waterfall + date bar | #5 | ✅ **DONE** (PR #13 merged) | `feat/issue-5-waterfall-datebar` → [PR #13](https://github.com/gohlihan/couple-spending/pull/13) |
 | 5 — Budget setting | #6 | ✅ **DONE** (PR #15 merged) | `feat/issue-6-budget-setting` → [PR #15](https://github.com/gohlihan/couple-spending/pull/15) |
-| 6 — Offline sync queue | #7 | ✅ **DONE** (PR #16 open) | `feat/issue-7-offline-sync` → [PR #16](https://github.com/gohlihan/couple-spending/pull/16) |
+| 6 — Offline sync queue | #7 | 🟡 **IMPLEMENTED** (PR #16 open; hosted validation pending) | `feat/issue-7-offline-sync` → [PR #16](https://github.com/gohlihan/couple-spending/pull/16) |
 | 7 — Edit/delete + audit | #8 | ⬜ pending | — |
 
 ### Stack actuals (from Phase 0)
@@ -230,7 +230,8 @@ subscribe to realtime for the partner's changes; last-write-wins.
 
 **Steps:**
 1. Sync engine: on `online` event + on interval, drain `pending_changes`:
-   upsert/delete by `client_id` (idempotent); mark synced or bump attempts.
+   upsert by `client_id` (idempotent), use version-conditional deletes by row id,
+   and remove delivered queue rows or bump attempts.
 2. On failure: backoff retry; surface a "sync pending / failed" indicator.
 3. Realtime: subscribe to `transactions` + `budgets` for the household; upsert/
    delete in Dexie; UI reacts live.
@@ -242,8 +243,22 @@ subscribe to realtime for the partner's changes; last-write-wins.
 **Validation:**
 - Offline: add 3 txns (queued in `pending_changes`); go online ⇒ all 3 sync; queue empty.
 - Two devices online: device A adds a txn ⇒ appears on device B within ~1–2s.
-- Offline edit then reconnect: audit trail shows the original + the change;
-  latest `updated_at` wins.
+- Controlled queue/LWW check: an offline update remains behind an unresolved
+  earlier write, and the latest `updated_at` wins after reconnect. The
+  end-to-end offline edit plus audit-trail check is deferred to Phase 7 (#8),
+  which adds the edit/delete UI.
+
+**Current branch checks / limitations:** `npm run build`, `npm run lint`,
+`npm test`, and `git diff --check` cover the local implementation. Version
+ordering preserves Postgres microseconds and ties on `updated_by`; an exactly
+equal timestamp+writer remains intentionally equal because no further server
+sequence exists. Supabase DELETE events cannot be filtered and RLS may reduce
+DELETE payloads to primary keys, so the client uses an unfiltered subscription
+plus an authenticated refetch before local deletion. Hosted Supabase migration,
+RLS, Realtime reconnect, and multi-device behavior still require project-backed
+manual validation. Hard offline deletes use conditional version checks but do
+not have tombstones, so a row deleted and independently recreated while
+disconnected remains an unavoidable Phase 6 limitation.
 
 ---
 
