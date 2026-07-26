@@ -16,6 +16,21 @@ export interface Transaction {
   client_id: string;
 }
 
+export interface Budget {
+  id: string;
+  household_id: string;
+  amount: number;
+  updated_at: string;
+  updated_by: string;
+}
+
+export interface HouseholdMember {
+  id: string;
+  household_id: string;
+  user_id: string;
+  display_name: string | null;
+}
+
 export interface PendingChange {
   client_id: string;
   op: 'insert' | 'update' | 'delete';
@@ -29,6 +44,7 @@ export interface PendingChange {
 
 class CoupleSpendingDatabase extends Dexie {
   transactions!: Table<Transaction, string>;
+  budgets!: Table<Budget, string>;
   pendingChanges!: Table<PendingChange, string>;
 
   constructor() {
