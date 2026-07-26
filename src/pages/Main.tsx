@@ -1,19 +1,38 @@
-import { useState } from 'react'
-import { useAuth } from '../lib/use-auth'
-import Invite from './Invite'
+import { liveQuery } from 'dexie';
+import { useEffect, useState } from 'react';
+import { db } from '../lib/db';
+import { useAuth } from '../lib/use-auth';
+import AddTransaction from './AddTransaction';
+import Invite from './Invite';
 
 interface MainProps {
-  onSignOut: () => void
+  onSignOut: () => void;
 }
 
-/**
- * Placeholder main screen (Phase 3+ fills in the waterfall / add-transaction
- * UI). For now it shows who is signed in and the invite panel so the first user
- * can share their code.
- */
 export default function Main({ onSignOut }: MainProps) {
-  const { user, displayName, inviteCode } = useAuth()
-  const [showInvite, setShowInvite] = useState(false)
+  const { user, displayName, householdId, inviteCode } = useAuth();
+  const [showInvite, setShowInvite] = useState(false);
+  const [transactionCount, setTransactionCount] = useState(0);
+
+  useEffect(() => {
+    if (!householdId) {
+      setTransactionCount(0);
+      return;
+    }
+
+    const subscription = liveQuery(() =>
+      db.transactions
+        .where('household_id')
+        .equals(householdId)
+        .filter((transaction) => transaction.deleted_at === null)
+        .count(),
+    ).subscribe({
+      next: setTransactionCount,
+      error: (error) => console.warn('Could not read local transactions.', error),
+    });
+
+    return () => subscription.unsubscribe();
+  }, [householdId]);
 
   return (
     <div className="app-shell">
@@ -25,13 +44,17 @@ export default function Main({ onSignOut }: MainProps) {
       </header>
 
       <main className="app-main">
-        <p className="welcome">
-          Hi, {displayName ?? user?.email ?? 'there'} 👋
-        </p>
-        <p className="muted">
-          The budget and spending timeline arrive in Phase 3. For now, you’re linked to your
-          household.
-        </p>
+        <p className="welcome">Hi, {displayName ?? user?.email ?? 'there'} 👋</p>
+        <AddTransaction />
+
+        <section className="recent-placeholder" aria-label="Recent transactions">
+          <h2>Recent transactions</h2>
+          <p className="muted">
+            {transactionCount === 0
+              ? 'No local transactions yet.'
+              : `${transactionCount} local transaction${transactionCount === 1 ? '' : 's'}.`}
+          </p>
+        </section>
 
         {showInvite ? (
           <Invite />
@@ -49,5 +72,5 @@ export default function Main({ onSignOut }: MainProps) {
         )}
       </main>
     </div>
-  )
+  );
 }
