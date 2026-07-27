@@ -179,8 +179,6 @@ export default function Main({ onSignOut }: MainProps) {
             memberNames={memberNames}
             month={month}
             onOpenTransaction={setDetailTransaction}
-            onEditTransaction={setEditTransaction}
-            onDeleteTransaction={setDeleteTransaction}
           />
         )}
         {view === 'plan' && <Plan memberNames={memberNames} />}

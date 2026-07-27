@@ -11,8 +11,6 @@ interface InsightsDashboardProps {
   memberNames: MemberNames;
   month: Date;
   onOpenTransaction: (transaction: Transaction) => void;
-  onEditTransaction: (transaction: Transaction) => void;
-  onDeleteTransaction: (transaction: Transaction) => void;
 }
 
 interface ChartPoint {
@@ -107,8 +105,6 @@ export default function InsightsDashboard({
   memberNames,
   month,
   onOpenTransaction,
-  onEditTransaction,
-  onDeleteTransaction,
 }: InsightsDashboardProps) {
   const totalSpent = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
   const budgetAmount = budget?.amount ?? null;
@@ -174,8 +170,6 @@ export default function InsightsDashboard({
           transactions={transactions}
           memberNames={memberNames}
           onOpen={onOpenTransaction}
-          onEdit={onEditTransaction}
-          onDelete={onDeleteTransaction}
         />
       </section>
     </>

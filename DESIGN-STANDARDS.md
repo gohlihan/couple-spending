@@ -64,9 +64,9 @@ All money is Malaysian ringgit, formatted through `src/lib/currency.ts` as
    day labels. No axes, legends, gradients, or heavy chart furniture.
 6. Show recent transactions inside **one** white, 24px-radius panel. Group
    rows by local calendar date, with a small date label between groups. Each row
-   has a pale circular category icon, semantic title, muted metadata, and a
-   right-aligned emerald amount. A deliberate left swipe exposes Edit/Delete;
-   tapping the row opens full note/detail content.
+   has a pale circular category icon, readable wrapping title, muted metadata,
+   and a right-aligned emerald amount. Tapping the row opens full note/detail
+   content with the edit and delete actions.
 7. Use a five-item fixed bottom nav: Insights, Plan, Add, Statistics, More.
    The selected item is electric blue; every item is at least a 44px target.
    Add opens the transaction sheet; Plan and Statistics are real screens; More

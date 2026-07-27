@@ -516,40 +516,9 @@ input:focus-visible {
   padding: 0;
 }
 
-.swipe-transaction {
-  position: relative;
+.activity-transaction-item {
   min-height: 76px;
-  overflow: hidden;
   border-top: 1px solid var(--line);
-}
-
-.swipe-actions {
-  position: absolute;
-  inset: 0 0 0 auto;
-  display: flex;
-  width: 142px;
-  pointer-events: none;
-}
-
-.swipe-transaction.is-swiped .swipe-actions {
-  pointer-events: auto;
-}
-
-.swipe-actions button {
-  width: 71px;
-  border: 0;
-  color: #fff;
-  cursor: pointer;
-  font-size: 0.75rem;
-  font-weight: 800;
-}
-
-.swipe-action-edit {
-  background: var(--accent);
-}
-
-.swipe-action-delete {
-  background: var(--danger);
 }
 
 .activity-transaction-row {
@@ -561,14 +530,9 @@ input:focus-visible {
   border: 0;
   background: var(--surface);
   color: inherit;
-  padding: 0;
+  padding: 10px 0;
   text-align: left;
   cursor: pointer;
-  transition: transform 180ms ease;
-}
-
-.swipe-transaction.is-swiped .activity-transaction-row {
-  transform: translateX(-142px);
 }
 
 .activity-transaction-copy {
@@ -596,22 +560,23 @@ input:focus-visible {
 
 .transaction-row-title,
 .transaction-row-meta {
-  overflow: hidden;
+  display: block;
   margin: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .transaction-row-title {
   color: var(--ink);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 750;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .transaction-row-meta {
-  margin-top: 4px;
+  margin-top: 5px;
   color: var(--muted);
   font-size: 0.7rem;
+  line-height: 1.25;
 }
 
 .transaction-row-amount {
