@@ -230,6 +230,26 @@ body {
   gap: 0.65rem;
 }
 
+.hamburger-button {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hamburger-button:hover,
+.hamburger-button:focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 .sync-status {
   font-size: 0.75rem;
   font-weight: 600;
@@ -256,6 +276,107 @@ body {
   padding: 0.4rem 0.75rem;
   font-size: 0.85rem;
   cursor: pointer;
+}
+
+.app-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 25;
+}
+
+.app-menu {
+  width: min(21rem, 88vw);
+  height: 100%;
+  overflow-y: auto;
+  padding: 1.25rem;
+  background: var(--card);
+  color: inherit;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.18);
+}
+
+.app-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-menu-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.menu-close-button {
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--field-bg);
+  color: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.app-menu-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 1rem;
+}
+
+.menu-sync-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem;
+  background: var(--field-bg);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+}
+
+.menu-sync-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.menu-sync-detail {
+  margin: -0.45rem 0 0;
+  padding: 0 0.85rem;
+  font-size: 0.8rem;
+}
+
+.menu-item {
+  width: 100%;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.menu-item-danger {
+  margin-top: 0.5rem;
+  color: var(--danger);
+}
+
+.app-menu .invite-card {
+  margin: 0.1rem 0 0.25rem;
 }
 
 .app-main {
