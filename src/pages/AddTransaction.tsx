@@ -67,7 +67,7 @@ export default function AddTransaction() {
       <h2 id="add-transaction-title">Add spending</h2>
       <form className="transaction-form" onSubmit={handleSubmit}>
         <label className="field" htmlFor="transaction-amount">
-          <span className="field-label">Amount</span>
+          <span className="field-label">Amount (RM)</span>
           <input
             ref={amountRef}
             id="transaction-amount"

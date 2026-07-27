@@ -1,10 +1,6 @@
 import type { Budget, Transaction } from '../lib/db';
+import { formatCurrency } from '../lib/currency';
 import { shortId, type MemberNames } from '../lib/members';
-
-const CURRENCY = new Intl.NumberFormat(undefined, {
-  style: 'currency',
-  currency: 'USD',
-});
 
 const TIME_LABEL = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
@@ -48,13 +44,13 @@ export default function Waterfall({ transactions, budget, memberNames }: Waterfa
               remaining !== null && remaining < 0 ? ' is-negative' : ''
             }`}
           >
-            {remaining === null ? '—' : CURRENCY.format(remaining)}
+            {remaining === null ? '—' : formatCurrency(remaining)}
           </span>
         </div>
         <p className="waterfall-summary-meta muted">
           {budgetAmount === null
             ? 'No budget set yet.'
-            : `${CURRENCY.format(totalSpent)} of ${CURRENCY.format(budgetAmount)} spent`}
+            : `${formatCurrency(totalSpent)} of ${formatCurrency(budgetAmount)} spent`}
         </p>
       </header>
 
@@ -66,10 +62,10 @@ export default function Waterfall({ transactions, budget, memberNames }: Waterfa
             <li key={transaction.id} className="waterfall-item">
               <div className="waterfall-item-main">
                 <span className="waterfall-item-amount">
-                  −{CURRENCY.format(transaction.amount)}
+                  −{formatCurrency(transaction.amount)}
                 </span>
                 <span className="waterfall-item-running">
-                  {rowRemaining === null ? '' : CURRENCY.format(rowRemaining)}
+                  {rowRemaining === null ? '' : formatCurrency(rowRemaining)}
                 </span>
               </div>
               <div className="waterfall-item-meta">

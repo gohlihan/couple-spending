@@ -81,6 +81,7 @@ the SPA talks to Supabase directly over HTTPS, gated by Row Level Security.
 ### 3.1 Couple / finance model
 - One **shared** monthly budget (not his/hers). Either partner can set or edit
   the budget amount.
+- User-facing amounts are Malaysian ringgit (MYR), formatted as `RM 100.00`.
 - Both partners record spending into the **single shared pool**. Every
   transaction depletes the one total budget (no per-category limits).
 - Each transaction **auto-stamps `created_by`** = the logged-in user who added

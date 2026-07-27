@@ -54,7 +54,7 @@ export default function BudgetSettings({ budget }: BudgetSettingsProps) {
       <p className="muted">Set the shared monthly budget. It carries forward until changed.</p>
       <form className="transaction-form" onSubmit={handleSubmit}>
         <label className="field" htmlFor="budget-amount">
-          <span className="field-label">Monthly amount</span>
+          <span className="field-label">Monthly amount (RM)</span>
           <input
             id="budget-amount"
             type="number"
@@ -63,7 +63,7 @@ export default function BudgetSettings({ budget }: BudgetSettingsProps) {
             step="0.01"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
-            placeholder="0.00"
+            placeholder="100.00"
             disabled={submitting}
             autoFocus
           />
