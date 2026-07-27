@@ -244,6 +244,10 @@ body {
   color: #ffd0ca;
 }
 
+.sync-status-offline {
+  color: #ffe08a;
+}
+
 .btn-header {
   background: rgba(255, 255, 255, 0.15);
   border: none;

@@ -45,7 +45,7 @@ type PostgrestDeleteResult = {
   error: unknown;
 };
 
-export type SyncStatusName = 'synced' | 'pending' | 'needs attention';
+export type SyncStatusName = 'synced' | 'pending' | 'needs attention' | 'offline';
 
 export interface SyncStatus {
   status: SyncStatusName;
@@ -220,12 +220,15 @@ function shouldApplyRemote(
 class SyncEngine {
   private readonly householdId: string;
   private readonly onStateChange: StateListener;
+  private readonly channelName: string;
   private state: SyncEngineState;
   private channel: ReturnType<typeof supabase.channel> | null = null;
   private intervalId: number | null = null;
   private drainPromise: Promise<void> | null = null;
   private hydratePromise: Promise<void> | null = null;
   private drainRequested = false;
+  private hydrationNeedsRetry = false;
+  private realtimeError = false;
   private started = false;
   private stopped = false;
 
@@ -241,6 +244,7 @@ class SyncEngine {
   constructor(householdId: string, onStateChange: StateListener) {
     this.householdId = householdId;
     this.onStateChange = onStateChange;
+    this.channelName = `household-sync:${householdId}:${crypto.randomUUID()}`;
     this.state = {
       online: browserIsOnline(),
       realtimeConnected: false,
@@ -258,7 +262,10 @@ class SyncEngine {
     window.addEventListener('offline', this.offlineHandler);
     this.startRealtime();
     this.intervalId = window.setInterval(() => {
-      if (browserIsOnline()) void this.drain();
+      if (!browserIsOnline()) return;
+      // A transient snapshot failure must retry hydration, not just writes;
+      // otherwise a cold-start cache can remain stale indefinitely.
+      void (this.hydrationNeedsRetry ? this.hydrateAndDrain() : this.drain());
     }, SYNC_INTERVAL_MS);
 
     await this.cleanupSyncedChanges();
@@ -289,8 +296,9 @@ class SyncEngine {
     this.onStateChange(this.state);
   }
 
-  private reportError(error: unknown): void {
+  private reportError(error: unknown, realtime = false): void {
     if (this.stopped) return;
+    if (realtime) this.realtimeError = true;
     this.publish({ hasError: true });
     const message = error instanceof Error ? error.message : String(error);
     console.warn('Sync engine request failed.', message);
@@ -302,7 +310,7 @@ class SyncEngine {
   }
 
   private clearError(): void {
-    if (this.state.hasError) this.publish({ hasError: false });
+    if (this.state.hasError && !this.realtimeError) this.publish({ hasError: false });
   }
 
   private async cleanupSyncedChanges(): Promise<void> {
@@ -325,7 +333,7 @@ class SyncEngine {
       },
     ) => {
       void this.handleRealtimeChange(table, payload.eventType, payload).catch((error) =>
-        this.reportError(error),
+        this.reportError(error, true),
       );
     };
 
@@ -333,7 +341,7 @@ class SyncEngine {
     // the subscription layer, then use the authenticated SELECT fallback for
     // DELETE payloads that lack household_id or version columns under RLS.
     this.channel = supabase
-      .channel(`household-sync:${this.householdId}`)
+      .channel(this.channelName)
       .on(
         'postgres_changes',
         {
@@ -395,6 +403,7 @@ class SyncEngine {
       .subscribe((status) => {
         if (this.stopped) return;
         if (status === 'SUBSCRIBED') {
+          this.realtimeError = false;
           this.publish({ realtimeConnected: true });
           // Realtime can reconnect without delivering events that happened
           // while the channel was down, so reconcile a complete snapshot.
@@ -404,9 +413,10 @@ class SyncEngine {
           this.clearError();
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           this.publish({ realtimeConnected: false });
-          this.reportError(new Error(`Realtime channel ${status.toLowerCase()}`));
+          this.reportError(new Error(`Realtime channel ${status.toLowerCase()}`), true);
         } else if (status === 'CLOSED') {
           this.publish({ realtimeConnected: false });
+          this.reportError(new Error('Realtime channel closed'), true);
         }
       });
   }
@@ -521,8 +531,12 @@ class SyncEngine {
           await db.budgets.delete(localBudget.id);
         }
       });
-      if (!this.stopped) this.clearError();
+      if (!this.stopped) {
+        this.hydrationNeedsRetry = false;
+        this.clearError();
+      }
     } catch (error: unknown) {
+      this.hydrationNeedsRetry = true;
       this.reportError(error);
     } finally {
       if (!this.stopped) this.publish({ hydrating: false });
@@ -1192,7 +1206,9 @@ export function useSync(householdId: string | null): SyncStatus {
       ? 'needs attention'
       : queue.pendingCount > 0
         ? 'pending'
-        : 'synced';
+        : !engineState.online
+          ? 'offline'
+          : 'synced';
 
   return {
     status,
