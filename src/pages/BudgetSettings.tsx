@@ -10,13 +10,22 @@ interface BudgetSettingsProps {
 export default function BudgetSettings({ budget }: BudgetSettingsProps) {
   const { user, householdId } = useAuth();
   const [amount, setAmount] = useState('');
+  // A hydration/realtime update can arrive while the user is entering a new
+  // amount. Keep their in-progress value authoritative until they save.
+  const [isDirty, setIsDirty] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (budget) setAmount(String(budget.amount));
-  }, [budget]);
+    if (!budget) return;
+    if (!isDirty) {
+      setAmount(String(budget.amount));
+    } else if (Number(amount) === budget.amount) {
+      // The saved local value arrived; accept future remote updates again.
+      setIsDirty(false);
+    }
+  }, [amount, budget, isDirty]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -66,7 +75,10 @@ export default function BudgetSettings({ budget }: BudgetSettingsProps) {
               min="0"
               step="0.01"
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onChange={(event) => {
+                setIsDirty(true);
+                setAmount(event.target.value);
+              }}
               placeholder="100.00"
               disabled={submitting}
               autoFocus

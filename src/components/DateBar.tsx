@@ -1,5 +1,6 @@
-const MONTH_LABEL = new Intl.DateTimeFormat(undefined, {
-  month: 'long',
+const RANGE_LABEL = new Intl.DateTimeFormat('en-MY', {
+  day: 'numeric',
+  month: 'short',
   year: 'numeric',
 });
 
@@ -9,38 +10,44 @@ interface DateBarProps {
   onChange: (month: Date) => void;
 }
 
-/** Add `delta` months to `date`, snapped to the first of the month. */
 function addMonths(date: Date, delta: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + delta, 1, 0, 0, 0, 0);
 }
 
-/**
- * Top month picker. Prev/next arrows step whole months; the label shows the
- * selected month (e.g. "July 2026"). Defaults to the current month via the
- * parent's initial state. A month-grid picker is a deferred nicety.
- */
+function monthRange(month: Date): string {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const last = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+  return `${RANGE_LABEL.format(first)} – ${RANGE_LABEL.format(last)}`;
+}
+
+/** Compact monthly period and date-range control for the Insights screen. */
 export default function DateBar({ month, onChange }: DateBarProps) {
   return (
-    <nav className="date-bar" aria-label="Select month">
-      <button
-        type="button"
-        className="date-bar-arrow"
-        onClick={() => onChange(addMonths(month, -1))}
-        aria-label="Previous month"
-      >
-        ‹
-      </button>
-      <span className="date-bar-label" aria-live="polite">
-        {MONTH_LABEL.format(month)}
+    <nav className="date-bar" aria-label="Selected period">
+      <span className="date-bar-period" aria-label="Period: monthly">
+        Monthly
       </span>
-      <button
-        type="button"
-        className="date-bar-arrow"
-        onClick={() => onChange(addMonths(month, 1))}
-        aria-label="Next month"
-      >
-        ›
-      </button>
+      <span className="date-bar-range" aria-live="polite">
+        {monthRange(month)}
+      </span>
+      <div className="date-bar-controls">
+        <button
+          type="button"
+          className="date-bar-arrow"
+          onClick={() => onChange(addMonths(month, -1))}
+          aria-label="Previous month"
+        >
+          <span aria-hidden="true">‹</span>
+        </button>
+        <button
+          type="button"
+          className="date-bar-arrow"
+          onClick={() => onChange(addMonths(month, 1))}
+          aria-label="Next month"
+        >
+          <span aria-hidden="true">›</span>
+        </button>
+      </div>
     </nav>
   );
 }
