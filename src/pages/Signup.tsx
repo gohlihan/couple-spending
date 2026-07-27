@@ -38,6 +38,15 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
         return
       }
 
+      // signUp emits SIGNED_IN before the browser auth store is always ready
+      // for the immediately-following RLS bootstrap writes. Re-assert the
+      // returned session so auth.uid() is present on household creation.
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      })
+      if (sessionError) throw sessionError
+
       if (initialInviteCode) {
         await joinHouseholdByCode(data.user.id, initialInviteCode, displayName)
       } else {
