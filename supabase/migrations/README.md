@@ -13,6 +13,7 @@ supabase/migrations/
 ├── 0003_realtime_publication.sql # Realtime publication + replica identity
 ├── 0004_sync_version_ordering.sql # client LWW trigger ordering
 ├── 0005_security_hardening.sql # membership, audit, and actor-write hardening
+├── 0006_bootstrap_household_returning.sql # first-user INSERT RETURNING fix
 └── README.md       # this file
 ```
 
@@ -70,19 +71,24 @@ creator's own new household, restricts member edits to a user's own display
 name, serializes the two-member cap, removes client audit-log writes, and
 server-stamps transaction/budget actor columns.
 
+`0006_bootstrap_household_returning.sql` lets a household creator read their
+newly inserted household before the first membership row exists, which is
+required by the first-user `INSERT ... RETURNING` flow.
+
 ## How to apply
 
 > Apply the migrations in numeric order to each Supabase project. Existing
 > environments that already have `0001` and `0002` need `0003`, `0004`, and
-> `0005`. Environments that already applied an earlier `0003` need `0004` and
-> `0005` as forward updates.
+> `0005`, and `0006`. Environments that already applied an earlier `0003` need
+> `0004`, `0005`, and `0006` as forward updates.
 
 ### Option A — Supabase Studio SQL Editor (simplest)
 
 1. Open your Supabase project → **SQL Editor** → **New query**.
 2. Run `0001_init.sql`, then `0002_auto_stamp_defaults.sql`, then
-   `0003_realtime_publication.sql`, `0004_sync_version_ordering.sql`, and
-   `0005_security_hardening.sql` in order.
+   `0003_realtime_publication.sql`, `0004_sync_version_ordering.sql`,
+   `0005_security_hardening.sql`, and `0006_bootstrap_household_returning.sql`
+   in order.
 3. Click **Run** after each migration. The migrations are safe to re-run where
    their SQL comments/documentation say they are idempotent.
 
@@ -117,7 +123,7 @@ validity), with two documented bootstrap exceptions:
 
 | Table | SELECT | INSERT | UPDATE | DELETE |
 |-------|--------|--------|--------|--------|
-| `households` | `id = current_household_id()` | bootstrap: `created_by = auth.uid()` (creator's first household) | `id = current_household_id()` | **blocked** (no policy) |
+| `households` | own membership, or creator's bootstrap row | bootstrap: `created_by = auth.uid()` (creator's first household) | `id = current_household_id()` | **blocked** (no policy) |
 | `household_members` | `household_id = current_household_id()` | bootstrap: creator's own new household; 2nd member via `join_household()` (definer, bypasses RLS) | own `display_name` only | **blocked** (no policy) |
 | `budgets` | `household_id = current_household_id()` | `household_id = current_household_id()` | `household_id = current_household_id()` | `household_id = current_household_id()` |
 | `transactions` | `household_id = current_household_id()` | `household_id = current_household_id()` | `household_id = current_household_id()` | `household_id = current_household_id()` |
