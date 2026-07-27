@@ -55,18 +55,23 @@ export default function BudgetSettings({ budget }: BudgetSettingsProps) {
       <form className="transaction-form" onSubmit={handleSubmit}>
         <label className="field" htmlFor="budget-amount">
           <span className="field-label">Monthly amount (RM)</span>
-          <input
-            id="budget-amount"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="0.01"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            placeholder="100.00"
-            disabled={submitting}
-            autoFocus
-          />
+          <span className="currency-input">
+            <span className="currency-prefix" aria-hidden="true">
+              RM
+            </span>
+            <input
+              id="budget-amount"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.01"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="100.00"
+              disabled={submitting}
+              autoFocus
+            />
+          </span>
         </label>
 
         {error && (

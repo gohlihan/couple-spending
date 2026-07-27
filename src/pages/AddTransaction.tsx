@@ -68,20 +68,25 @@ export default function AddTransaction() {
       <form className="transaction-form" onSubmit={handleSubmit}>
         <label className="field" htmlFor="transaction-amount">
           <span className="field-label">Amount (RM)</span>
-          <input
-            ref={amountRef}
-            id="transaction-amount"
-            type="number"
-            inputMode="decimal"
-            min="0.01"
-            step="0.01"
-            required
-            autoFocus
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            placeholder="0.00"
-            disabled={submitting}
-          />
+          <span className="currency-input">
+            <span className="currency-prefix" aria-hidden="true">
+              RM
+            </span>
+            <input
+              ref={amountRef}
+              id="transaction-amount"
+              type="number"
+              inputMode="decimal"
+              min="0.01"
+              step="0.01"
+              required
+              autoFocus
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="0.00"
+              disabled={submitting}
+            />
+          </span>
         </label>
 
         <label className="field" htmlFor="transaction-spent-at">
