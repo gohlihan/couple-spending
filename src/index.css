@@ -224,6 +224,30 @@ body {
   font-weight: 600;
 }
 
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.sync-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sync-status-pending {
+  color: #ffe08a;
+}
+
+.sync-status-needs-attention {
+  color: #ffd0ca;
+}
+
+.sync-status-offline {
+  color: #ffe08a;
+}
+
 .btn-header {
   background: rgba(255, 255, 255, 0.15);
   border: none;
