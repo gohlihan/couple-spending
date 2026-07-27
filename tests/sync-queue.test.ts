@@ -40,3 +40,25 @@ test('does not block changes for another record', () => {
 
   assert.equal(hasUnresolvedEarlierChange([earlier, later], later), false);
 });
+
+test('keeps planned-item completion behind an unresolved planned-item write', () => {
+  const insert = makeChange({
+    client_id: 'plan-insert',
+    table: 'planned_items',
+    record_id: 'plan-1',
+    status: 'failed',
+  });
+  const complete = makeChange({
+    client_id: 'plan-complete',
+    table: 'planned_items',
+    record_id: 'plan-1',
+    op: 'complete',
+    created_at: '2026-07-27T01:02:04.000000Z',
+  });
+
+  assert.equal(hasUnresolvedEarlierChange([insert, complete], complete), true);
+  assert.equal(
+    hasUnresolvedEarlierChange([insert, complete], complete, new Set(['plan-insert'])),
+    false,
+  );
+});

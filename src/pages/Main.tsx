@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react';
+import type { Transaction } from '../lib/db';
+import { formatCurrency } from '../lib/currency';
+import { softDeleteTransaction } from '../lib/transactions';
 import { useAuth } from '../lib/use-auth';
 import { useBudget } from '../lib/budget';
 import { useHouseholdMembers } from '../lib/members';
@@ -9,8 +12,11 @@ import InsightsDashboard from '../components/InsightsDashboard';
 import AddTransaction from './AddTransaction';
 import BudgetSettings from './BudgetSettings';
 import Invite from './Invite';
+import Plan from './Plan';
+import Statistics from './Statistics';
 
-type NavItem = 'insights' | 'activity' | 'add' | 'budget' | 'more';
+type View = 'insights' | 'plan' | 'statistics';
+type NavItem = View | 'add' | 'more';
 type IconName = NavItem;
 
 interface MainProps {
@@ -35,10 +41,11 @@ function NavIcon({ name }: { name: IconName }) {
       </svg>
     );
   }
-  if (name === 'activity') {
+  if (name === 'plan') {
     return (
       <svg {...common}>
-        <path d="M3 12h4l2.2-5 4 10 2.1-5H21" />
+        <path d="M5 4h14v16H5z" />
+        <path d="m8 9 2 2 4-4M8 15h8" />
       </svg>
     );
   }
@@ -49,11 +56,10 @@ function NavIcon({ name }: { name: IconName }) {
       </svg>
     );
   }
-  if (name === 'budget') {
+  if (name === 'statistics') {
     return (
       <svg {...common}>
-        <rect x="4" y="6" width="16" height="12" rx="2" />
-        <path d="M16 12h.01" />
+        <path d="M5 19V11m5 8V5m5 14v-5m5 5V8" />
       </svg>
     );
   }
@@ -66,17 +72,27 @@ function NavIcon({ name }: { name: IconName }) {
   );
 }
 
+function displayGreeting(name: string | null, email: string | undefined): string {
+  if (name?.trim()) return name.trim();
+  return email?.split('@')[0] || 'there';
+}
+
 export default function Main({ onSignOut }: MainProps) {
-  const { householdId, inviteCode } = useAuth();
+  const { user, displayName, householdId, inviteCode } = useAuth();
   const [month, setMonth] = useState<Date>(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
   });
+  const [view, setView] = useState<View>('insights');
+  const [activeTab, setActiveTab] = useState<NavItem>('insights');
   const [showAdd, setShowAdd] = useState(false);
   const [showBudget, setShowBudget] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<NavItem>('insights');
+  const [detailTransaction, setDetailTransaction] = useState<Transaction | null>(null);
+  const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
+  const [deleteTransaction, setDeleteTransaction] = useState<Transaction | null>(null);
+  const [transactionActionError, setTransactionActionError] = useState<string | null>(null);
 
   const budget = useBudget(householdId);
   const transactions = useMonthTransactions(householdId, month);
@@ -88,17 +104,32 @@ export default function Main({ onSignOut }: MainProps) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setMenuOpen(false);
-        setActiveTab('insights');
+        setActiveTab(view);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [menuOpen]);
+  }, [menuOpen, view]);
+
+  function activeView(): void {
+    setActiveTab(view);
+  }
+
+  function closeMenu() {
+    setMenuOpen(false);
+    activeView();
+  }
+
+  function openView(nextView: View) {
+    setView(nextView);
+    setActiveTab(nextView);
+    setMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   function openBudget() {
     setMenuOpen(false);
     setShowBudget(true);
-    setActiveTab('budget');
   }
 
   function openAdd() {
@@ -112,44 +143,57 @@ export default function Main({ onSignOut }: MainProps) {
     setActiveTab('more');
   }
 
-  function showActivity() {
-    setActiveTab('activity');
-    document.getElementById('recent-transactions')?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    });
+  async function confirmDeleteTransaction() {
+    if (!deleteTransaction) return;
+    setTransactionActionError(null);
+    try {
+      await softDeleteTransaction(deleteTransaction, { user, householdId });
+      setDeleteTransaction(null);
+      setDetailTransaction(null);
+    } catch (error) {
+      setTransactionActionError(
+        error instanceof Error ? error.message : 'Could not remove this transaction.',
+      );
+    }
   }
+
+  const greeting = displayGreeting(displayName, user?.email);
+  const screenTitle = view === 'insights' ? 'Insights' : view === 'plan' ? 'Plan' : 'Statistics';
 
   return (
     <div className="app-shell">
       <header className="insights-header" id="insights-top">
-        <h1>Insights</h1>
-        {inviteCode && (
-          <button type="button" className="invite-promo" onClick={() => openMore(true)}>
-            Invite partner
-          </button>
-        )}
+        <div>
+          <p className="header-greeting">Hello, {greeting}</p>
+          <h1>{screenTitle}</h1>
+        </div>
       </header>
 
-      <DateBar month={month} onChange={setMonth} />
+      {view !== 'plan' && <DateBar month={month} onChange={setMonth} />}
 
       <main className="app-main">
-        <InsightsDashboard
-          transactions={transactions}
-          budget={budget}
-          memberNames={memberNames}
-          month={month}
-        />
+        {view === 'insights' && (
+          <InsightsDashboard
+            transactions={transactions}
+            budget={budget}
+            memberNames={memberNames}
+            month={month}
+            onOpenTransaction={setDetailTransaction}
+            onEditTransaction={setEditTransaction}
+            onDeleteTransaction={setDeleteTransaction}
+          />
+        )}
+        {view === 'plan' && <Plan memberNames={memberNames} />}
+        {view === 'statistics' && (
+          <Statistics transactions={transactions} memberNames={memberNames} />
+        )}
       </main>
 
       {menuOpen && (
         <div
           className="app-menu-backdrop"
           onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setMenuOpen(false);
-              setActiveTab('insights');
-            }
+            if (event.target === event.currentTarget) closeMenu();
           }}
         >
           <aside
@@ -168,10 +212,7 @@ export default function Main({ onSignOut }: MainProps) {
                 type="button"
                 className="menu-close-button"
                 aria-label="Close menu"
-                onClick={() => {
-                  setMenuOpen(false);
-                  setActiveTab('insights');
-                }}
+                onClick={closeMenu}
               >
                 ×
               </button>
@@ -199,7 +240,6 @@ export default function Main({ onSignOut }: MainProps) {
               <button type="button" className="menu-item" onClick={openBudget}>
                 Budget settings
               </button>
-
               {inviteCode && (
                 <>
                   <button
@@ -207,12 +247,11 @@ export default function Main({ onSignOut }: MainProps) {
                     className="menu-item"
                     onClick={() => setShowInvite((visible) => !visible)}
                   >
-                    {showInvite ? 'Hide invite code' : 'Show invite code'}
+                    {showInvite ? 'Hide invite code' : 'Invite partner'}
                   </button>
                   {showInvite && <Invite />}
                 </>
               )}
-
               <button
                 type="button"
                 className="menu-item menu-item-danger"
@@ -233,22 +272,19 @@ export default function Main({ onSignOut }: MainProps) {
           type="button"
           className={`bottom-nav-item${activeTab === 'insights' ? ' is-active' : ''}`}
           aria-current={activeTab === 'insights' ? 'page' : undefined}
-          onClick={() => {
-            setActiveTab('insights');
-            document.getElementById('insights-top')?.scrollIntoView({ behavior: 'smooth' });
-          }}
+          onClick={() => openView('insights')}
         >
           <NavIcon name="insights" />
           <span>Insights</span>
         </button>
         <button
           type="button"
-          className={`bottom-nav-item${activeTab === 'activity' ? ' is-active' : ''}`}
-          aria-current={activeTab === 'activity' ? 'page' : undefined}
-          onClick={showActivity}
+          className={`bottom-nav-item${activeTab === 'plan' ? ' is-active' : ''}`}
+          aria-current={activeTab === 'plan' ? 'page' : undefined}
+          onClick={() => openView('plan')}
         >
-          <NavIcon name="activity" />
-          <span>Activity</span>
+          <NavIcon name="plan" />
+          <span>Plan</span>
         </button>
         <button
           type="button"
@@ -261,12 +297,12 @@ export default function Main({ onSignOut }: MainProps) {
         </button>
         <button
           type="button"
-          className={`bottom-nav-item${activeTab === 'budget' ? ' is-active' : ''}`}
-          aria-current={activeTab === 'budget' ? 'page' : undefined}
-          onClick={openBudget}
+          className={`bottom-nav-item${activeTab === 'statistics' ? ' is-active' : ''}`}
+          aria-current={activeTab === 'statistics' ? 'page' : undefined}
+          onClick={() => openView('statistics')}
         >
-          <NavIcon name="budget" />
-          <span>Budget</span>
+          <NavIcon name="statistics" />
+          <span>Statistics</span>
         </button>
         <button
           type="button"
@@ -288,7 +324,7 @@ export default function Main({ onSignOut }: MainProps) {
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               setShowBudget(false);
-              setActiveTab('insights');
+              activeView();
             }
           }}
         >
@@ -299,7 +335,7 @@ export default function Main({ onSignOut }: MainProps) {
                 className="sheet-close-button"
                 onClick={() => {
                   setShowBudget(false);
-                  setActiveTab('insights');
+                  activeView();
                 }}
                 aria-label="Close budget settings"
               >
@@ -320,7 +356,7 @@ export default function Main({ onSignOut }: MainProps) {
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               setShowAdd(false);
-              setActiveTab('insights');
+              activeView();
             }
           }}
         >
@@ -331,7 +367,7 @@ export default function Main({ onSignOut }: MainProps) {
                 className="sheet-close-button"
                 onClick={() => {
                   setShowAdd(false);
-                  setActiveTab('insights');
+                  activeView();
                 }}
                 aria-label="Close add transaction"
               >
@@ -339,6 +375,134 @@ export default function Main({ onSignOut }: MainProps) {
               </button>
             </div>
             <AddTransaction />
+          </div>
+        </div>
+      )}
+
+      {detailTransaction && (
+        <div
+          className="sheet-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Transaction details"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setDetailTransaction(null);
+          }}
+        >
+          <div className="sheet transaction-detail-sheet">
+            <div className="sheet-handle-row">
+              <button
+                type="button"
+                className="sheet-close-button"
+                onClick={() => setDetailTransaction(null)}
+              >
+                Close
+              </button>
+            </div>
+            <section className="transaction-detail" aria-labelledby="transaction-detail-title">
+              <p className="section-eyebrow">Transaction</p>
+              <h2 id="transaction-detail-title">{formatCurrency(detailTransaction.amount)}</h2>
+              <dl>
+                <div>
+                  <dt>Note</dt>
+                  <dd>{detailTransaction.note || 'No note added'}</dd>
+                </div>
+                <div>
+                  <dt>When</dt>
+                  <dd>{new Date(detailTransaction.spent_at).toLocaleString('en-MY')}</dd>
+                </div>
+                <div>
+                  <dt>Tag</dt>
+                  <dd>{detailTransaction.chip || 'None'}</dd>
+                </div>
+              </dl>
+              <div className="transaction-detail-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setEditTransaction(detailTransaction);
+                    setDetailTransaction(null);
+                  }}
+                >
+                  Edit transaction
+                </button>
+                <button
+                  type="button"
+                  className="detail-delete-button"
+                  onClick={() => {
+                    setDeleteTransaction(detailTransaction);
+                    setDetailTransaction(null);
+                  }}
+                >
+                  Delete transaction
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
+
+      {editTransaction && (
+        <div
+          className="sheet-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit transaction"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setEditTransaction(null);
+          }}
+        >
+          <div className="sheet">
+            <div className="sheet-handle-row">
+              <button
+                type="button"
+                className="sheet-close-button"
+                onClick={() => setEditTransaction(null)}
+                aria-label="Close edit transaction"
+              >
+                Close
+              </button>
+            </div>
+            <AddTransaction
+              transaction={editTransaction}
+              onSaved={() => setEditTransaction(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {deleteTransaction && (
+        <div
+          className="sheet-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Delete transaction"
+        >
+          <div className="sheet delete-confirmation">
+            <h2>Delete transaction?</h2>
+            <p>This removes it from your timeline and keeps an audit record after sync.</p>
+            {transactionActionError && (
+              <p className="form-message form-error" role="alert">
+                {transactionActionError}
+              </p>
+            )}
+            <div className="delete-confirmation-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setDeleteTransaction(null)}
+              >
+                Keep it
+              </button>
+              <button
+                type="button"
+                className="detail-delete-button"
+                onClick={() => void confirmDeleteTransaction()}
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,5 +1,6 @@
-import { useRef, useState, type FormEvent } from 'react';
-import { addTransaction } from '../lib/transactions';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import type { Transaction } from '../lib/db';
+import { addTransaction, updateTransaction } from '../lib/transactions';
 import { useAuth } from '../lib/use-auth';
 
 const chips = ['eat', 'shop', 'petrol', 'bills', 'fun'];
@@ -9,16 +10,36 @@ function localDateTimeValue(date = new Date()): string {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
-export default function AddTransaction() {
+interface AddTransactionProps {
+  transaction?: Transaction;
+  onSaved?: (transaction: Transaction) => void;
+}
+
+/** One accessible form for both new spending and Phase-7 transaction edits. */
+export default function AddTransaction({ transaction, onSaved }: AddTransactionProps) {
   const { user, householdId } = useAuth();
   const amountRef = useRef<HTMLInputElement>(null);
-  const [amount, setAmount] = useState('');
-  const [spentAt, setSpentAt] = useState(() => localDateTimeValue());
-  const [note, setNote] = useState('');
-  const [chip, setChip] = useState('');
+  const [amount, setAmount] = useState(transaction ? String(transaction.amount) : '');
+  const [spentAt, setSpentAt] = useState(() =>
+    transaction ? localDateTimeValue(new Date(transaction.spent_at)) : localDateTimeValue(),
+  );
+  const [note, setNote] = useState(transaction?.note ?? '');
+  const [chip, setChip] = useState(transaction?.chip ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const editing = Boolean(transaction);
+
+  useEffect(() => {
+    setAmount(transaction ? String(transaction.amount) : '');
+    setSpentAt(
+      transaction ? localDateTimeValue(new Date(transaction.spent_at)) : localDateTimeValue(),
+    );
+    setNote(transaction?.note ?? '');
+    setChip(transaction?.chip ?? '');
+    setMessage(null);
+    setError(null);
+  }, [transaction]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,21 +61,27 @@ export default function AddTransaction() {
     setError(null);
     setMessage(null);
     try {
-      await addTransaction(
-        {
-          amount: numericAmount,
-          spentAt: parsedSpentAt.toISOString(),
-          note,
-          chip,
-        },
-        { user, householdId },
-      );
-      setAmount('');
-      setSpentAt(localDateTimeValue());
-      setNote('');
-      setChip('');
-      setMessage('Transaction saved locally.');
-      amountRef.current?.focus();
+      const input = {
+        amount: numericAmount,
+        spentAt: parsedSpentAt.toISOString(),
+        note,
+        chip,
+      };
+      const saved = transaction
+        ? await updateTransaction(transaction, input, { user, householdId })
+        : await addTransaction(input, { user, householdId });
+
+      if (editing) {
+        setMessage('Transaction updated locally.');
+        onSaved?.(saved);
+      } else {
+        setAmount('');
+        setSpentAt(localDateTimeValue());
+        setNote('');
+        setChip('');
+        setMessage('Transaction saved locally.');
+        amountRef.current?.focus();
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Could not save transaction.');
     } finally {
@@ -64,7 +91,7 @@ export default function AddTransaction() {
 
   return (
     <section className="transaction-card" aria-labelledby="add-transaction-title">
-      <h2 id="add-transaction-title">Add spending</h2>
+      <h2 id="add-transaction-title">{editing ? 'Edit spending' : 'Add spending'}</h2>
       <form className="transaction-form" onSubmit={handleSubmit}>
         <label className="field" htmlFor="transaction-amount">
           <span className="field-label">Amount (RM)</span>
@@ -143,7 +170,7 @@ export default function AddTransaction() {
           </p>
         )}
         <button className="btn-primary" type="submit" disabled={submitting}>
-          {submitting ? 'Saving…' : 'Add transaction'}
+          {submitting ? 'Saving…' : editing ? 'Save changes' : 'Add transaction'}
         </button>
       </form>
     </section>

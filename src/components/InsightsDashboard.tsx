@@ -1,20 +1,18 @@
 import type { Budget, Transaction } from '../lib/db';
 import { formatCurrency } from '../lib/currency';
-import { shortId, type MemberNames } from '../lib/members';
+import type { MemberNames } from '../lib/members';
+import ActivityTransactionList from './ActivityTransactionList';
 
 const DAY_LABEL = new Intl.DateTimeFormat('en-MY', { weekday: 'narrow' });
-const TRANSACTION_TIME = new Intl.DateTimeFormat('en-MY', {
-  day: 'numeric',
-  month: 'short',
-  hour: 'numeric',
-  minute: '2-digit',
-});
 
 interface InsightsDashboardProps {
   transactions: Transaction[];
   budget: Budget | null;
   memberNames: MemberNames;
   month: Date;
+  onOpenTransaction: (transaction: Transaction) => void;
+  onEditTransaction: (transaction: Transaction) => void;
+  onDeleteTransaction: (transaction: Transaction) => void;
 }
 
 interface ChartPoint {
@@ -47,7 +45,6 @@ function lastSevenDays(month: Date): Date[] {
   const end = isCurrentMonth
     ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12)
     : new Date(month.getFullYear(), month.getMonth() + 1, 0, 12);
-
   return Array.from({ length: 7 }, (_, index) => addDays(end, index - 6));
 }
 
@@ -57,30 +54,10 @@ function buildDailyPoints(transactions: Transaction[], month: Date): ChartPoint[
     const key = localDayKey(new Date(transaction.spent_at));
     totals.set(key, (totals.get(key) ?? 0) + transaction.amount);
   }
-
   return lastSevenDays(month).map((day) => ({
     label: DAY_LABEL.format(day),
     value: totals.get(localDayKey(day)) ?? 0,
   }));
-}
-
-function titleCase(value: string): string {
-  return value.replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function transactionTitle(transaction: Transaction): string {
-  return transaction.note?.trim() || (transaction.chip ? titleCase(transaction.chip) : 'Spending');
-}
-
-function transactionIcon(transaction: Transaction): string {
-  const icons: Record<string, string> = {
-    eat: 'E',
-    shop: 'S',
-    petrol: 'P',
-    bills: 'B',
-    fun: 'F',
-  };
-  return transaction.chip ? (icons[transaction.chip] ?? transaction.chip[0]?.toUpperCase()) : '•';
 }
 
 function MicroChart({ points, label }: { points: ChartPoint[]; label: string }) {
@@ -123,15 +100,15 @@ function AnalyticsCard({ label, value, detail, points, tone = 'default' }: Analy
   );
 }
 
-/**
- * Month analytics and the transaction list are derived solely from the local
- * Dexie-backed records supplied by Main, so the screen works offline too.
- */
+/** Real-data monthly cards and an interactive, locally backed transaction list. */
 export default function InsightsDashboard({
   transactions,
   budget,
   memberNames,
   month,
+  onOpenTransaction,
+  onEditTransaction,
+  onDeleteTransaction,
 }: InsightsDashboardProps) {
   const totalSpent = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
   const budgetAmount = budget?.amount ?? null;
@@ -142,9 +119,6 @@ export default function InsightsDashboard({
   const dailyAverage = activeDays > 0 ? totalSpent / activeDays : 0;
   const points = buildDailyPoints(transactions, month);
   const weeklySpent = points.reduce((sum, point) => sum + point.value, 0);
-  const recentTransactions = [...transactions]
-    .sort((left, right) => right.spent_at.localeCompare(left.spent_at))
-    .slice(0, 6);
 
   return (
     <>
@@ -160,7 +134,7 @@ export default function InsightsDashboard({
           value={remaining === null ? 'Set a budget' : formatCurrency(remaining)}
           detail={
             budgetAmount === null
-              ? 'Tap Budget below to begin'
+              ? 'Open Statistics after adding a budget'
               : `of ${formatCurrency(budgetAmount)} monthly`
           }
           points={points}
@@ -196,32 +170,13 @@ export default function InsightsDashboard({
           </div>
           <span className="recent-count">{transactions.length}</span>
         </header>
-
-        {recentTransactions.length === 0 ? (
-          <p className="recent-empty">No transactions for this month yet.</p>
-        ) : (
-          <ol className="transaction-list">
-            {recentTransactions.map((transaction) => {
-              const who = memberNames[transaction.created_by] ?? shortId(transaction.created_by);
-              return (
-                <li key={transaction.id} className="transaction-row">
-                  <span className="transaction-category-icon" aria-hidden="true">
-                    {transactionIcon(transaction)}
-                  </span>
-                  <div className="transaction-row-copy">
-                    <p className="transaction-row-title">{transactionTitle(transaction)}</p>
-                    <p className="transaction-row-meta">
-                      {TRANSACTION_TIME.format(new Date(transaction.spent_at))} · {who}
-                    </p>
-                  </div>
-                  <span className="transaction-row-amount">
-                    {formatCurrency(transaction.amount)}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        )}
+        <ActivityTransactionList
+          transactions={transactions}
+          memberNames={memberNames}
+          onOpen={onOpenTransaction}
+          onEdit={onEditTransaction}
+          onDelete={onDeleteTransaction}
+        />
       </section>
     </>
   );

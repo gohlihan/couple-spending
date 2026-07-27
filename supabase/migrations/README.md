@@ -14,6 +14,7 @@ supabase/migrations/
 ├── 0004_sync_version_ordering.sql # client LWW trigger ordering
 ├── 0005_security_hardening.sql # membership, audit, and actor-write hardening
 ├── 0006_bootstrap_household_returning.sql # first-user INSERT RETURNING fix
+├── 0007_planned_items.sql # shared plans and atomic completion RPC
 └── README.md       # this file
 ```
 
@@ -21,13 +22,13 @@ supabase/migrations/
 
 **Tables** (all tenant-scoped by `household_id`):
 
-| Table | Purpose |
-|-------|---------|
-| `households` | One per couple; holds the `invite_code` used to link the 2nd partner. |
-| `household_members` | Links auth users → household (max **2** per household, trigger-enforced). |
-| `budgets` | The shared monthly budget (one row per household — `household_id` is unique). |
-| `transactions` | Every spend: amount, `spent_at`, note, chip, soft-delete, `client_id` for offline idempotency. |
-| `audit_log` | Immutable history of inserts/updates/deletes on transactions & budgets. |
+| Table               | Purpose                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| `households`        | One per couple; holds the `invite_code` used to link the 2nd partner.                          |
+| `household_members` | Links auth users → household (max **2** per household, trigger-enforced).                      |
+| `budgets`           | The shared monthly budget (one row per household — `household_id` is unique).                  |
+| `transactions`      | Every spend: amount, `spent_at`, note, chip, soft-delete, `client_id` for offline idempotency. |
+| `audit_log`         | Immutable history of inserts/updates/deletes on transactions & budgets.                        |
 
 **Functions / triggers:**
 
@@ -75,20 +76,26 @@ server-stamps transaction/budget actor columns.
 newly inserted household before the first membership row exists, which is
 required by the first-user `INSERT ... RETURNING` flow.
 
+`0007_planned_items.sql` creates the household-scoped shared shopping plan,
+publishes it to Realtime, and adds `complete_planned_item()`. The RPC locks an
+active plan item, creates exactly one linked `shop` transaction, and records the
+completed item in one server transaction. A stable completion client id makes
+retries after a lost response idempotent.
+
 ## How to apply
 
 > Apply the migrations in numeric order to each Supabase project. Existing
 > environments that already have `0001` and `0002` need `0003`, `0004`, and
-> `0005`, and `0006`. Environments that already applied an earlier `0003` need
-> `0004`, `0005`, and `0006` as forward updates.
+> `0005`, `0006`, and `0007`. Environments that already applied an earlier
+> `0003` need `0004`, `0005`, `0006`, and `0007` as forward updates.
 
 ### Option A — Supabase Studio SQL Editor (simplest)
 
 1. Open your Supabase project → **SQL Editor** → **New query**.
 2. Run `0001_init.sql`, then `0002_auto_stamp_defaults.sql`, then
    `0003_realtime_publication.sql`, `0004_sync_version_ordering.sql`,
-   `0005_security_hardening.sql`, and `0006_bootstrap_household_returning.sql`
-   in order.
+   `0005_security_hardening.sql`, `0006_bootstrap_household_returning.sql`, and
+   `0007_planned_items.sql` in order.
 3. Click **Run** after each migration. The migrations are safe to re-run where
    their SQL comments/documentation say they are idempotent.
 
@@ -117,17 +124,18 @@ The CLI picks up files under `supabase/migrations/` and applies them in order.
 
 ## RLS guarantees
 
-Row Level Security is **enabled on all five tables**. Every policy uses
+Row Level Security is **enabled on all six tables**. Every policy uses
 `current_household_id()` for both `using` (visibility) and `with check` (write
 validity), with two documented bootstrap exceptions:
 
-| Table | SELECT | INSERT | UPDATE | DELETE |
-|-------|--------|--------|--------|--------|
-| `households` | own membership, or creator's bootstrap row | bootstrap: `created_by = auth.uid()` (creator's first household) | `id = current_household_id()` | **blocked** (no policy) |
-| `household_members` | `household_id = current_household_id()` | bootstrap: creator's own new household; 2nd member via `join_household()` (definer, bypasses RLS) | own `display_name` only | **blocked** (no policy) |
-| `budgets` | `household_id = current_household_id()` | `household_id = current_household_id()` | `household_id = current_household_id()` | `household_id = current_household_id()` |
-| `transactions` | `household_id = current_household_id()` | `household_id = current_household_id()` | `household_id = current_household_id()` | `household_id = current_household_id()` |
-| `audit_log` | `household_id = current_household_id()` | **trigger-only** (no client policy) | **blocked** (no policy) | **blocked** (no policy) |
+| Table               | SELECT                                     | INSERT                                                                                            | UPDATE                                  | DELETE                                  |
+| ------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------- |
+| `households`        | own membership, or creator's bootstrap row | bootstrap: `created_by = auth.uid()` (creator's first household)                                  | `id = current_household_id()`           | **blocked** (no policy)                 |
+| `household_members` | `household_id = current_household_id()`    | bootstrap: creator's own new household; 2nd member via `join_household()` (definer, bypasses RLS) | own `display_name` only                 | **blocked** (no policy)                 |
+| `budgets`           | `household_id = current_household_id()`    | `household_id = current_household_id()`                                                           | `household_id = current_household_id()` | `household_id = current_household_id()` |
+| `transactions`      | `household_id = current_household_id()`    | `household_id = current_household_id()`                                                           | `household_id = current_household_id()` | `household_id = current_household_id()` |
+| `planned_items`     | `household_id = current_household_id()`    | `household_id = current_household_id()`                                                           | active items only                       | active items only                       |
+| `audit_log`         | `household_id = current_household_id()`    | **trigger-only** (no client policy)                                                               | **blocked** (no policy)                 | **blocked** (no policy)                 |
 
 Key properties:
 

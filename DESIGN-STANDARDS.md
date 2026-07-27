@@ -53,21 +53,24 @@ All money is Malaysian ringgit, formatted through `src/lib/currency.ts` as
 ## Signed-in screen anatomy
 
 1. Leave iOS status-bar breathing room at the top.
-2. Use a serif **Insights** page heading with one outlined blue promotional
-   pill (`Invite partner`).
+2. Use a small personalized greeting above the serif **Insights** page heading.
+   Keep the invite action inside **More**, not in the header.
 3. Place a compact monthly period pill beside a clear date range with previous
    and next controls.
-4. Use a two-column grid of four analytics cards. Each card includes a short
-   label, prominent value, muted context, and a minimal seven-day microchart.
+4. Use one horizontally scrollable, snap-aligned row of four analytics cards.
+   Each card includes a short label, prominent single-line value, muted context,
+   and a minimal seven-day microchart.
 5. Use thin vertical chart strokes, small circular data points, and seven short
    day labels. No axes, legends, gradients, or heavy chart furniture.
-6. Show recent transactions inside **one** white, 24px-radius panel. Each row
+6. Show recent transactions inside **one** white, 24px-radius panel. Group
+   rows by local calendar date, with a small date label between groups. Each row
    has a pale circular category icon, semantic title, muted metadata, and a
-   right-aligned emerald amount.
-7. Use a five-item fixed bottom nav: Insights, Activity, Add, Budget, More.
+   right-aligned emerald amount. A deliberate left swipe exposes Edit/Delete;
+   tapping the row opens full note/detail content.
+7. Use a five-item fixed bottom nav: Insights, Plan, Add, Statistics, More.
    The selected item is electric blue; every item is at least a 44px target.
-   Add, Budget, and More activate existing sheets/menu rather than introducing
-   a second navigation route.
+   Add opens the transaction sheet; Plan and Statistics are real screens; More
+   owns budget settings, invite, sync status, and sign-out.
 
 ## Interaction and accessibility
 

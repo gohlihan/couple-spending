@@ -14,6 +14,8 @@ export interface Transaction {
   deleted_at: string | null;
   deleted_by: string | null;
   client_id: string;
+  /** Set when this transaction was created by completing a planned item. */
+  planned_item_id?: string | null;
   /** True when client_id is a local-only index fallback for a legacy NULL row. */
   legacy_client_id?: boolean;
 }
@@ -33,11 +35,31 @@ export interface HouseholdMember {
   display_name: string | null;
 }
 
+/** A shared, budgeted item that can later be converted into a transaction. */
+export interface PlannedItem {
+  id: string;
+  household_id: string;
+  title: string;
+  amount: number;
+  planned_for: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  updated_by: string | null;
+  completed_at: string | null;
+  completed_by: string | null;
+  spent_transaction_id: string | null;
+  completion_client_id: string | null;
+  client_id: string;
+  /** True when client_id is a local-only fallback for a legacy NULL row. */
+  legacy_client_id?: boolean;
+}
+
 export interface PendingChange {
   client_id: string;
   household_id: string;
-  op: 'insert' | 'update' | 'delete';
-  table: 'transactions' | 'budgets';
+  op: 'insert' | 'update' | 'delete' | 'complete';
+  table: 'transactions' | 'budgets' | 'planned_items';
   record_id: string;
   payload: unknown;
   created_at: string;
@@ -50,6 +72,7 @@ export interface PendingChange {
 class CoupleSpendingDatabase extends Dexie {
   transactions!: Table<Transaction, string>;
   budgets!: Table<Budget, string>;
+  plannedItems!: Table<PlannedItem, string>;
   pendingChanges!: Table<PendingChange, string>;
 
   constructor() {
@@ -101,6 +124,18 @@ class CoupleSpendingDatabase extends Dexie {
             }
           }),
       );
+
+    // Shared shopping plans join the same offline queue and household scope as
+    // transactions. The table is separate so active and completed plan items
+    // remain available without polluting the spending timeline.
+    this.version(4).stores({
+      transactions: 'id, household_id, spent_at, &client_id, deleted_at',
+      budgets: 'id, household_id',
+      plannedItems: 'id, household_id, planned_for, completed_at, &client_id',
+      pendingChanges: 'client_id, household_id, status, created_at',
+      household_members: 'id, household_id',
+      audit_log: 'id, household_id, record_id',
+    });
   }
 }
 

@@ -254,6 +254,13 @@ input:focus-visible {
   gap: 16px;
 }
 
+.header-greeting {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .insights-header h1 {
   margin: 0;
   color: var(--ink);
@@ -345,19 +352,31 @@ input:focus-visible {
 /* Analytics -------------------------------------------------------------- */
 
 .analytics-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
   gap: 12px;
+  margin: 0 -20px;
+  padding: 0 20px 8px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-padding-inline: 20px;
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: none;
+}
+
+.analytics-grid::-webkit-scrollbar {
+  display: none;
 }
 
 .analytics-card {
-  min-height: 210px;
+  min-width: min(76vw, 272px);
+  min-height: 204px;
   display: flex;
   flex-direction: column;
-  padding: 20px 16px 16px;
+  padding: 20px 18px 16px;
   overflow: hidden;
   border-radius: var(--radius-card);
   background: var(--surface);
+  scroll-snap-align: start;
 }
 
 .analytics-card-label,
@@ -375,7 +394,10 @@ input:focus-visible {
   margin: 12px 0 8px;
   color: var(--ink);
   font-family: 'Iowan Old Style', 'Baskerville', Georgia, serif;
-  font-size: clamp(1.5rem, 7vw, 2rem);
+  overflow: hidden;
+  font-size: clamp(1.45rem, 6.5vw, 1.85rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 600;
   line-height: 1.03;
   letter-spacing: -0.04em;
@@ -473,18 +495,85 @@ input:focus-visible {
   text-align: center;
 }
 
-.transaction-list {
-  list-style: none;
-  margin: 0;
-  padding: 0 20px 4px;
+.activity-day-groups {
+  padding: 0 20px 16px;
 }
 
-.transaction-row {
+.activity-day-group + .activity-day-group {
+  margin-top: 20px;
+}
+
+.activity-date-label {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.activity-transaction-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.swipe-transaction {
+  position: relative;
+  min-height: 76px;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+}
+
+.swipe-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  width: 142px;
+  pointer-events: none;
+}
+
+.swipe-transaction.is-swiped .swipe-actions {
+  pointer-events: auto;
+}
+
+.swipe-actions button {
+  width: 71px;
+  border: 0;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.swipe-action-edit {
+  background: var(--accent);
+}
+
+.swipe-action-delete {
+  background: var(--danger);
+}
+
+.activity-transaction-row {
+  width: 100%;
   min-height: 76px;
   display: flex;
   align-items: center;
   gap: 12px;
-  border-top: 1px solid var(--line);
+  border: 0;
+  background: var(--surface);
+  color: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms ease;
+}
+
+.swipe-transaction.is-swiped .activity-transaction-row {
+  transform: translateX(-142px);
+}
+
+.activity-transaction-copy {
+  min-width: 0;
+  flex: 1;
 }
 
 .transaction-category-icon {
@@ -533,11 +622,313 @@ input:focus-visible {
   text-align: right;
 }
 
-.recent-empty {
+.recent-empty,
+.activity-empty {
   margin: 0;
   padding: 8px 20px 24px;
   color: var(--muted);
   font-size: 0.86rem;
+}
+
+/* Plan and statistics ----------------------------------------------------- */
+
+.plan-screen,
+.statistics-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.view-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.view-header h1 {
+  margin: 0;
+  font-family: 'Iowan Old Style', 'Baskerville', Georgia, serif;
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.view-header p:not(.section-eyebrow) {
+  max-width: 15rem;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.view-add-button {
+  min-height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.plan-form-card,
+.plan-list-section,
+.statistics-panel {
+  padding: 20px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.plan-form-heading,
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plan-form-heading h2,
+.section-title-row h2,
+.statistics-panel h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.section-title-row > span {
+  min-width: 28px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.plan-message {
+  margin: -8px 4px 0;
+  color: var(--positive);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.plan-empty {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.plan-item-list,
+.category-list,
+.largest-purchases-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.plan-item {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  column-gap: 10px;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.plan-item input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--positive);
+  cursor: pointer;
+}
+
+.plan-item-copy {
+  min-width: 0;
+}
+
+.plan-item-copy p,
+.plan-item-copy span {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-item-copy p {
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.plan-item-copy span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.plan-item-amount {
+  color: var(--positive);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.plan-item-actions {
+  grid-column: 2 / -1;
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.plan-item-actions button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.plan-item-actions button:last-child {
+  color: var(--danger);
+}
+
+.plan-history {
+  background: var(--field);
+}
+
+.plan-item-completed {
+  opacity: 0.58;
+}
+
+.plan-item-completed .plan-item-copy p {
+  text-decoration: line-through;
+}
+
+.statistics-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.statistics-summary-grid article {
+  min-height: 108px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.statistics-summary-grid span,
+.statistics-summary-grid small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.statistics-summary-grid strong {
+  display: block;
+  overflow: hidden;
+  margin: 10px 0 0;
+  color: var(--ink);
+  font-family: 'Iowan Old Style', 'Baskerville', Georgia, serif;
+  font-size: 1.35rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statistics-summary-grid small {
+  margin-top: 4px;
+}
+
+.category-list li + li,
+.largest-purchases-list li + li {
+  margin-top: 16px;
+}
+
+.category-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.category-row strong,
+.largest-purchases-list strong {
+  color: var(--positive);
+  font-size: 0.78rem;
+}
+
+.category-track {
+  height: 5px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--field);
+}
+
+.category-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.category-list small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.largest-purchases-list li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.purchase-rank {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.largest-purchases-list p,
+.largest-purchases-list span {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.largest-purchases-list p {
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.largest-purchases-list span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.66rem;
 }
 
 /* Menu ------------------------------------------------------------------- */
@@ -868,6 +1259,85 @@ input:focus-visible {
   color: var(--positive);
   font-size: 0.8rem;
   font-weight: 700;
+}
+
+.transaction-detail {
+  padding: 8px 0 12px;
+}
+
+.transaction-detail h2,
+.delete-confirmation h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: 'Iowan Old Style', 'Baskerville', Georgia, serif;
+  font-size: 2.25rem;
+  letter-spacing: -0.04em;
+}
+
+.transaction-detail dl {
+  margin: 24px 0;
+}
+
+.transaction-detail dl > div {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.transaction-detail dt {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.transaction-detail dd {
+  margin: 6px 0 0;
+  color: var(--ink);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.transaction-detail-actions,
+.delete-confirmation-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.detail-delete-button {
+  min-height: 48px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-control);
+  padding: 12px 16px;
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.detail-delete-button:hover,
+.detail-delete-button:focus-visible {
+  background: var(--danger-soft);
+}
+
+.delete-confirmation {
+  padding: 16px 0 8px;
+}
+
+.delete-confirmation p {
+  margin: 12px 0 24px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @media (min-width: 640px) {
