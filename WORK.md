@@ -254,7 +254,7 @@ ordering preserves Postgres microseconds and ties on `updated_by`; an exactly
 equal timestamp+writer remains intentionally equal because no further server
 sequence exists. Supabase DELETE events cannot be filtered and RLS may reduce
 DELETE payloads to primary keys, so the client uses an unfiltered subscription
-plus an authenticated refetch before local deletion. Hosted Supabase migration,
+plus an authenticated refetch before local deletion. Migrations `0003` and `0004` are applied to the linked Supabase project;
 RLS, Realtime reconnect, and multi-device behavior still require project-backed
 manual validation. Hard offline deletes use conditional version checks but do
 not have tombstones, so a row deleted and independently recreated while
