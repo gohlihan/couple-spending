@@ -15,6 +15,7 @@ supabase/migrations/
 ├── 0005_security_hardening.sql # membership, audit, and actor-write hardening
 ├── 0006_bootstrap_household_returning.sql # first-user INSERT RETURNING fix
 ├── 0007_planned_items.sql # shared plans and atomic completion RPC
+├── 0008_invite_membership_integrity.sql # one household per user
 └── README.md       # this file
 ```
 
@@ -82,20 +83,25 @@ active plan item, creates exactly one linked `shop` transaction, and records the
 completed item in one server transaction. A stable completion client id makes
 retries after a lost response idempotent.
 
+`0008_invite_membership_integrity.sql` adds a unique user-membership index and
+hardens `join_household()` so a user can belong to only one household. Same-code
+retries remain idempotent; cross-household attempts fail. Password changes use
+Supabase Auth's `updateUser()` and do not modify application tables.
+
 ## How to apply
 
 > Apply the migrations in numeric order to each Supabase project. Existing
 > environments that already have `0001` and `0002` need `0003`, `0004`, and
-> `0005`, `0006`, and `0007`. Environments that already applied an earlier
-> `0003` need `0004`, `0005`, `0006`, and `0007` as forward updates.
+> `0005`, `0006`, `0007`, and `0008`. Environments that already applied an earlier
+> `0003` need `0004`, `0005`, `0006`, `0007`, and `0008` as forward updates.
 
 ### Option A — Supabase Studio SQL Editor (simplest)
 
 1. Open your Supabase project → **SQL Editor** → **New query**.
 2. Run `0001_init.sql`, then `0002_auto_stamp_defaults.sql`, then
    `0003_realtime_publication.sql`, `0004_sync_version_ordering.sql`,
-   `0005_security_hardening.sql`, `0006_bootstrap_household_returning.sql`, and
-   `0007_planned_items.sql` in order.
+   `0005_security_hardening.sql`, `0006_bootstrap_household_returning.sql`,
+   `0007_planned_items.sql`, and `0008_invite_membership_integrity.sql` in order.
 3. Click **Run** after each migration. The migrations are safe to re-run where
    their SQL comments/documentation say they are idempotent.
 

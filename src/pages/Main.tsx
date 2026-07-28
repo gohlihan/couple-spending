@@ -4,7 +4,7 @@ import { formatCurrency } from '../lib/currency';
 import { softDeleteTransaction } from '../lib/transactions';
 import { useAuth } from '../lib/use-auth';
 import { useBudget } from '../lib/budget';
-import { useHouseholdMembers } from '../lib/members';
+import { shortId, useHouseholdMembers } from '../lib/members';
 import { useMonthTransactions } from '../lib/use-month-transactions';
 import { useSync } from '../lib/sync';
 import DateBar from '../components/DateBar';
@@ -14,6 +14,12 @@ import BudgetSettings from './BudgetSettings';
 import Invite from './Invite';
 import Plan from './Plan';
 import Statistics from './Statistics';
+import ChangePassword from './ChangePassword';
+import {
+  activityTitle,
+  useHouseholdPresence,
+  useRecentHouseholdActivity,
+} from '../lib/household-activity';
 
 type View = 'insights' | 'plan' | 'statistics';
 type NavItem = View | 'add' | 'more';
@@ -77,6 +83,13 @@ function displayGreeting(name: string | null, email: string | undefined): string
   return email?.split('@')[0] || 'there';
 }
 
+const ACTIVITY_TIME_LABEL = new Intl.DateTimeFormat('en-MY', {
+  day: 'numeric',
+  month: 'short',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
 export default function Main({ onSignOut }: MainProps) {
   const { user, displayName, householdId, inviteCode } = useAuth();
   const [month, setMonth] = useState<Date>(() => {
@@ -87,6 +100,7 @@ export default function Main({ onSignOut }: MainProps) {
   const [activeTab, setActiveTab] = useState<NavItem>('insights');
   const [showAdd, setShowAdd] = useState(false);
   const [showBudget, setShowBudget] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [detailTransaction, setDetailTransaction] = useState<Transaction | null>(null);
@@ -97,6 +111,8 @@ export default function Main({ onSignOut }: MainProps) {
   const budget = useBudget(householdId);
   const transactions = useMonthTransactions(householdId, month);
   const memberNames = useHouseholdMembers(householdId);
+  const presence = useHouseholdPresence(householdId, user?.id ?? null, displayName);
+  const recentActivity = useRecentHouseholdActivity(householdId);
   const sync = useSync(householdId);
 
   useEffect(() => {
@@ -137,6 +153,11 @@ export default function Main({ onSignOut }: MainProps) {
     setActiveTab('add');
   }
 
+  function openPassword() {
+    setMenuOpen(false);
+    setShowPassword(true);
+  }
+
   function openMore(showInviteCode = false) {
     setShowInvite(showInviteCode);
     setMenuOpen(true);
@@ -162,12 +183,14 @@ export default function Main({ onSignOut }: MainProps) {
 
   return (
     <div className="app-shell">
-      <header className="insights-header" id="insights-top">
-        <div>
-          <p className="header-greeting">Hello, {greeting}</p>
-          <h1>{screenTitle}</h1>
-        </div>
-      </header>
+      {view === 'insights' && (
+        <header className="insights-header" id="insights-top">
+          <div>
+            <p className="header-greeting">Hello, {greeting}</p>
+            <h1>{screenTitle}</h1>
+          </div>
+        </header>
+      )}
 
       {view !== 'plan' && <DateBar month={month} onChange={setMonth} />}
 
@@ -235,6 +258,58 @@ export default function Main({ onSignOut }: MainProps) {
                 </p>
               )}
 
+              <section className="menu-panel" aria-labelledby="household-status-title">
+                <p className="section-eyebrow">Household</p>
+                <h3 id="household-status-title">Who's online</h3>
+                <ul className="presence-list">
+                  {Array.from(
+                    new Set([...Object.keys(memberNames), ...(user ? [user.id] : [])]),
+                  ).map((memberId) => {
+                    const isCurrentUser = memberId === user?.id;
+                    const online = isCurrentUser || presence.onlineUserIds.has(memberId);
+                    return (
+                      <li key={memberId}>
+                        <span className={`presence-dot${online ? ' is-online' : ''}`} />
+                        <span>
+                          {memberNames[memberId] ?? (isCurrentUser ? greeting : shortId(memberId))}
+                          {isCurrentUser ? ' (you)' : ''}
+                        </span>
+                        <small>{online ? 'Online' : 'Offline'}</small>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {!presence.connected && (
+                  <p className="menu-panel-note">Presence reconnects when online.</p>
+                )}
+              </section>
+
+              <section className="menu-panel" aria-labelledby="recent-activity-title">
+                <div className="menu-panel-heading">
+                  <div>
+                    <p className="section-eyebrow">Shared history</p>
+                    <h3 id="recent-activity-title">Recent activity</h3>
+                  </div>
+                </div>
+                {recentActivity.length === 0 ? (
+                  <p className="menu-panel-note">Recent synced changes will appear here.</p>
+                ) : (
+                  <ol className="recent-activity-list">
+                    {recentActivity.map((activity) => (
+                      <li key={activity.id}>
+                        <p>
+                          {activity.changed_by
+                            ? (memberNames[activity.changed_by] ?? shortId(activity.changed_by))
+                            : 'System'}{' '}
+                          {activityTitle(activity)}
+                        </p>
+                        <span>{ACTIVITY_TIME_LABEL.format(new Date(activity.changed_at))}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+
               <button type="button" className="menu-item" onClick={openBudget}>
                 Budget settings
               </button>
@@ -250,6 +325,9 @@ export default function Main({ onSignOut }: MainProps) {
                   {showInvite && <Invite />}
                 </>
               )}
+              <button type="button" className="menu-item" onClick={openPassword}>
+                Change password
+              </button>
               <button
                 type="button"
                 className="menu-item menu-item-danger"
@@ -341,6 +419,32 @@ export default function Main({ onSignOut }: MainProps) {
               </button>
             </div>
             <BudgetSettings budget={budget} />
+          </div>
+        </div>
+      )}
+
+      {showPassword && (
+        <div
+          className="sheet-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Change password"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setShowPassword(false);
+          }}
+        >
+          <div className="sheet">
+            <div className="sheet-handle-row">
+              <button
+                type="button"
+                className="sheet-close-button"
+                onClick={() => setShowPassword(false)}
+                aria-label="Close change password"
+              >
+                Close
+              </button>
+            </div>
+            <ChangePassword />
           </div>
         </div>
       )}

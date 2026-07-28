@@ -1,50 +1,58 @@
-import { useState } from 'react'
-import { useAuth } from '../lib/use-auth'
-import { createHouseholdForUser, joinHouseholdByCode, normalizeInviteCode } from '../lib/household'
+import { useState } from 'react';
+import { useAuth } from '../lib/use-auth';
+import {
+  clearPendingInviteCode,
+  createHouseholdForUser,
+  joinHouseholdByCode,
+  normalizeInviteCode,
+  readPendingInviteCode,
+} from '../lib/household';
 
 interface JoinProps {
   /** Invite code carried from the `?invite=` URL param, prefilled into the form. */
-  initialInviteCode: string | null
+  initialInviteCode: string | null;
 }
 
 export default function Join({ initialInviteCode }: JoinProps) {
-  const { user, refreshMembership, setPendingSetup, setAuthError, clearAuthError } = useAuth()
-  const [inviteCode, setInviteCode] = useState(initialInviteCode ?? '')
-  const [displayName, setDisplayName] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [mode, setMode] = useState<'join' | 'create'>(initialInviteCode ? 'join' : 'join')
+  const { user, refreshMembership, setPendingSetup, setAuthError, clearAuthError } = useAuth();
+  const [inviteCode, setInviteCode] = useState(initialInviteCode ?? readPendingInviteCode());
+  const [displayName, setDisplayName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<'join' | 'create'>(initialInviteCode ? 'join' : 'join');
 
   async function handleJoin(event: React.FormEvent) {
-    event.preventDefault()
-    if (!user) return
-    setSubmitting(true)
-    setPendingSetup(true)
-    clearAuthError()
+    event.preventDefault();
+    if (!user) return;
+    setSubmitting(true);
+    setPendingSetup(true);
+    clearAuthError();
     try {
-      await joinHouseholdByCode(user.id, inviteCode, displayName)
-      await refreshMembership()
+      await joinHouseholdByCode(user.id, inviteCode, displayName);
+      clearPendingInviteCode();
+      await refreshMembership();
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : String(err))
+      setAuthError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSubmitting(false)
-      setPendingSetup(false)
+      setSubmitting(false);
+      setPendingSetup(false);
     }
   }
 
   async function handleCreate(event: React.FormEvent) {
-    event.preventDefault()
-    if (!user) return
-    setSubmitting(true)
-    setPendingSetup(true)
-    clearAuthError()
+    event.preventDefault();
+    if (!user) return;
+    setSubmitting(true);
+    setPendingSetup(true);
+    clearAuthError();
     try {
-      await createHouseholdForUser(user.id, displayName)
-      await refreshMembership()
+      await createHouseholdForUser(user.id, displayName);
+      clearPendingInviteCode();
+      await refreshMembership();
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : String(err))
+      setAuthError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSubmitting(false)
-      setPendingSetup(false)
+      setSubmitting(false);
+      setPendingSetup(false);
     }
   }
 
@@ -117,5 +125,5 @@ export default function Join({ initialInviteCode }: JoinProps) {
         </button>
       )}
     </form>
-  )
+  );
 }

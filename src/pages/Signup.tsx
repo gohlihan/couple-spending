@@ -1,41 +1,66 @@
-import { useState } from 'react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/use-auth'
-import { createHouseholdForUser, joinHouseholdByCode } from '../lib/household'
+import { useState } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/use-auth';
+import {
+  createHouseholdForUser,
+  clearPendingInviteCode,
+  joinHouseholdByCode,
+  normalizeInviteCode,
+  readPendingInviteCode,
+  rememberPendingInviteCode,
+} from '../lib/household';
 
 interface SignupProps {
   /** Invite code carried from the `?invite=` URL param. When present, signup
    * joins the existing household instead of creating a new one, so the second
    * user shares the first user's household_id (issue #3 acceptance). */
-  initialInviteCode: string | null
-  onSwitchToLogin: () => void
+  initialInviteCode: string | null;
+  onSwitchToLogin: () => void;
 }
 
 export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupProps) {
-  const { refreshMembership, setPendingSetup, setAuthError, clearAuthError } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const { refreshMembership, setPendingSetup, setAuthError, clearAuthError } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [inviteCode, setInviteCode] = useState(() => {
+    const code = initialInviteCode ?? readPendingInviteCode();
+    rememberPendingInviteCode(code);
+    return code;
+  });
+  const [submitting, setSubmitting] = useState(false);
 
-  const joining = initialInviteCode !== null
+  const normalizedInviteCode = normalizeInviteCode(inviteCode);
+  const joining = normalizedInviteCode.length > 0;
 
   async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    setSubmitting(true)
-    setPendingSetup(true)
-    clearAuthError()
+    event.preventDefault();
+    setSubmitting(true);
+    setPendingSetup(true);
+    clearAuthError();
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password })
-      if (error) throw error
-      if (!data.user) throw new Error('Sign-up did not return a user.')
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            pending_invite_code: normalizedInviteCode || null,
+          },
+        },
+      });
+      if (error) throw error;
+      if (!data.user) throw new Error('Sign-up did not return a user.');
 
       // If email confirmation is enabled (mailer_autoconfirm off), no session is
       // established yet — the user must confirm then log in. Membership setup
       // happens after they log in (routed to the Join screen).
       if (!data.session) {
-        setAuthError('Account created. Check your email to confirm, then log in.')
-        return
+        setAuthError(
+          joining
+            ? 'Account created. Check your email to confirm, then log in to join the household.'
+            : 'Account created. Check your email to confirm, then log in.',
+        );
+        return;
       }
 
       // signUp emits SIGNED_IN before the browser auth store is always ready
@@ -44,20 +69,21 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
       const { error: sessionError } = await supabase.auth.setSession({
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
-      })
-      if (sessionError) throw sessionError
+      });
+      if (sessionError) throw sessionError;
 
-      if (initialInviteCode) {
-        await joinHouseholdByCode(data.user.id, initialInviteCode, displayName)
+      if (normalizedInviteCode) {
+        await joinHouseholdByCode(data.user.id, normalizedInviteCode, displayName);
       } else {
-        await createHouseholdForUser(data.user.id, displayName)
+        await createHouseholdForUser(data.user.id, displayName);
       }
-      await refreshMembership(data.user.id)
+      clearPendingInviteCode();
+      await refreshMembership(data.user.id);
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : String(err))
+      setAuthError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSubmitting(false)
-      setPendingSetup(false)
+      setSubmitting(false);
+      setPendingSetup(false);
     }
   }
 
@@ -94,6 +120,27 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
       </label>
 
       <label className="field">
+        <span className="field-label">
+          Invite code <span className="optional">(optional)</span>
+        </span>
+        <input
+          type="text"
+          autoComplete="off"
+          value={inviteCode}
+          onChange={(event) => {
+            const nextCode = normalizeInviteCode(event.target.value);
+            setInviteCode(nextCode);
+            rememberPendingInviteCode(nextCode);
+          }}
+          placeholder="e.g. AB3K9XYZ"
+          disabled={submitting}
+          autoCapitalize="characters"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+      </label>
+
+      <label className="field">
         <span className="field-label">Your name</span>
         <input
           type="text"
@@ -114,5 +161,5 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
         Already have an account? Log in
       </button>
     </form>
-  )
+  );
 }

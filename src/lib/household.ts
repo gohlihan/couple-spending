@@ -1,31 +1,17 @@
-import { supabase } from './supabase'
+import { supabase } from './supabase';
+import { generateInviteCode, normalizeInviteCode } from './invite';
 
-// ---------------------------------------------------------------------------
-// Invite codes — 8-char, unambiguous alphabet (no 0/O/I/1) so they're safe to
-// read aloud or type. Generated with the Web Crypto CSPRNG.
-// ---------------------------------------------------------------------------
-
-const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-const CODE_LENGTH = 8
-
-export function generateInviteCode(length = CODE_LENGTH): string {
-  const values = new Uint32Array(length)
-  crypto.getRandomValues(values)
-  let code = ''
-  for (let i = 0; i < length; i++) {
-    code += CODE_ALPHABET[values[i] % CODE_ALPHABET.length]
-  }
-  return code
-}
-
-/** Normalise a user-typed invite code (trim + uppercase). */
-export function normalizeInviteCode(code: string): string {
-  return code.trim().toUpperCase()
-}
-
+export {
+  clearPendingInviteCode,
+  generateInviteCode,
+  inviteSharePath,
+  normalizeInviteCode,
+  readPendingInviteCode,
+  rememberPendingInviteCode,
+} from './invite';
 export interface CreatedHousehold {
-  householdId: string
-  inviteCode: string
+  householdId: string;
+  inviteCode: string;
 }
 
 /**
@@ -46,44 +32,44 @@ export async function createHouseholdForUser(
   userId: string,
   displayName: string,
 ): Promise<CreatedHousehold> {
-  let lastError: unknown = null
+  let lastError: unknown = null;
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    const inviteCode = generateInviteCode()
+    const inviteCode = generateInviteCode();
 
     const { data: household, error } = await supabase
       .from('households')
       .insert({ created_by: userId, invite_code: inviteCode })
       .select('id, invite_code')
-      .single()
+      .single();
 
     if (error) {
-      lastError = error
+      lastError = error;
       // 23505 = unique_violation (invite_code collision) → retry with a new code
-      if (error.code === '23505') continue
-      throw error
+      if (error.code === '23505') continue;
+      throw error;
     }
 
     const { error: memberError } = await supabase.from('household_members').insert({
       household_id: household.id,
       user_id: userId,
       display_name: displayName.trim() || null,
-    })
-    if (memberError) throw memberError
+    });
+    if (memberError) throw memberError;
 
     const { error: budgetError } = await supabase.from('budgets').insert({
       household_id: household.id,
       amount: 0,
       updated_by: userId,
-    })
-    if (budgetError) throw budgetError
+    });
+    if (budgetError) throw budgetError;
 
-    return { householdId: household.id, inviteCode: household.invite_code }
+    return { householdId: household.id, inviteCode: household.invite_code };
   }
 
   throw lastError instanceof Error
     ? lastError
-    : new Error('Failed to create household: invite code collision')
+    : new Error('Failed to create household: invite code collision');
 }
 
 /**
@@ -98,20 +84,20 @@ export async function joinHouseholdByCode(
   inviteCode: string,
   displayName: string,
 ): Promise<string> {
-  const code = normalizeInviteCode(inviteCode)
+  const code = normalizeInviteCode(inviteCode);
 
   const { data, error } = await supabase.rpc('join_household', {
     p_invite_code: code,
-  })
-  if (error) throw error
+  });
+  if (error) throw error;
 
-  const householdId = data as string
+  const householdId = data as string;
 
   const { error: updateError } = await supabase
     .from('household_members')
     .update({ display_name: displayName.trim() || null })
-    .eq('user_id', userId)
-  if (updateError) throw updateError
+    .eq('user_id', userId);
+  if (updateError) throw updateError;
 
-  return householdId
+  return householdId;
 }
