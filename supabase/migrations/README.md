@@ -16,6 +16,7 @@ supabase/migrations/
 ├── 0006_bootstrap_household_returning.sql # first-user INSERT RETURNING fix
 ├── 0007_planned_items.sql # shared plans and atomic completion RPC
 ├── 0008_invite_membership_integrity.sql # one household per user
+├── 0009_link_household_from_more.sql # switch an empty household to a partner
 └── README.md       # this file
 ```
 
@@ -88,12 +89,17 @@ hardens `join_household()` so a user can belong to only one household. Same-code
 retries remain idempotent; cross-household attempts fail. Password changes use
 Supabase Auth's `updateUser()` and do not modify application tables.
 
+`0009_link_household_from_more.sql` adds `link_household_by_code()`. It lets a
+user switch from an empty, single-member bootstrap household to a partner's
+household, while refusing to discard existing transactions, plans, or a non-zero
+budget.
+
 ## How to apply
 
 > Apply the migrations in numeric order to each Supabase project. Existing
 > environments that already have `0001` and `0002` need `0003`, `0004`, and
-> `0005`, `0006`, `0007`, and `0008`. Environments that already applied an earlier
-> `0003` need `0004`, `0005`, `0006`, `0007`, and `0008` as forward updates.
+> `0005`, `0006`, `0007`, `0008`, and `0009`. Environments that already applied an earlier
+> `0003` need `0004`, `0005`, `0006`, `0007`, `0008`, and `0009` as forward updates.
 
 ### Option A — Supabase Studio SQL Editor (simplest)
 
@@ -101,7 +107,8 @@ Supabase Auth's `updateUser()` and do not modify application tables.
 2. Run `0001_init.sql`, then `0002_auto_stamp_defaults.sql`, then
    `0003_realtime_publication.sql`, `0004_sync_version_ordering.sql`,
    `0005_security_hardening.sql`, `0006_bootstrap_household_returning.sql`,
-   `0007_planned_items.sql`, and `0008_invite_membership_integrity.sql` in order.
+   `0007_planned_items.sql`, `0008_invite_membership_integrity.sql`, and
+   `0009_link_household_from_more.sql` in order.
 3. Click **Run** after each migration. The migrations are safe to re-run where
    their SQL comments/documentation say they are idempotent.
 

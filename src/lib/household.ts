@@ -79,6 +79,17 @@ export async function createHouseholdForUser(
  *
  * Returns the household id the user joined.
  */
+export async function linkHouseholdByCode(inviteCode: string): Promise<string> {
+  const code = normalizeInviteCode(inviteCode);
+  if (!code) throw new Error('Enter your partner’s invite code.');
+
+  const { data, error } = await supabase.rpc('link_household_by_code', {
+    p_invite_code: code,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
 export async function joinHouseholdByCode(
   userId: string,
   inviteCode: string,

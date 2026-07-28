@@ -15,6 +15,7 @@ import Invite from './Invite';
 import Plan from './Plan';
 import Statistics from './Statistics';
 import ChangePassword from './ChangePassword';
+import LinkPartner from './LinkPartner';
 import {
   activityTitle,
   useHouseholdPresence,
@@ -101,6 +102,7 @@ export default function Main({ onSignOut }: MainProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [showBudget, setShowBudget] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showLinkPartner, setShowLinkPartner] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [detailTransaction, setDetailTransaction] = useState<Transaction | null>(null);
@@ -325,6 +327,14 @@ export default function Main({ onSignOut }: MainProps) {
                   {showInvite && <Invite />}
                 </>
               )}
+              <button
+                type="button"
+                className="menu-item"
+                onClick={() => setShowLinkPartner((visible) => !visible)}
+              >
+                {showLinkPartner ? 'Hide link form' : 'Link with partner'}
+              </button>
+              {showLinkPartner && <LinkPartner />}
               <button type="button" className="menu-item" onClick={openPassword}>
                 Change password
               </button>
