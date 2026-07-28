@@ -17,6 +17,7 @@ supabase/migrations/
 ├── 0007_planned_items.sql # shared plans and atomic completion RPC
 ├── 0008_invite_membership_integrity.sql # one household per user
 ├── 0009_link_household_from_more.sql # switch an empty household to a partner
+├── 0010_fix_link_household_cleanup.sql # fix budget-audit cleanup ordering
 └── README.md       # this file
 ```
 
@@ -94,12 +95,15 @@ user switch from an empty, single-member bootstrap household to a partner's
 household, while refusing to discard existing transactions, plans, or a non-zero
 budget.
 
+`0010_fix_link_household_cleanup.sql` corrects the cleanup order for the
+bootstrap budget's audit trigger when an empty household is removed.
+
 ## How to apply
 
 > Apply the migrations in numeric order to each Supabase project. Existing
 > environments that already have `0001` and `0002` need `0003`, `0004`, and
-> `0005`, `0006`, `0007`, `0008`, and `0009`. Environments that already applied an earlier
-> `0003` need `0004`, `0005`, `0006`, `0007`, `0008`, and `0009` as forward updates.
+> `0005`, `0006`, `0007`, `0008`, `0009`, and `0010`. Environments that already applied an earlier
+> `0003` need `0004`, `0005`, `0006`, `0007`, `0008`, `0009`, and `0010` as forward updates.
 
 ### Option A — Supabase Studio SQL Editor (simplest)
 
@@ -108,7 +112,8 @@ budget.
    `0003_realtime_publication.sql`, `0004_sync_version_ordering.sql`,
    `0005_security_hardening.sql`, `0006_bootstrap_household_returning.sql`,
    `0007_planned_items.sql`, `0008_invite_membership_integrity.sql`, and
-   `0009_link_household_from_more.sql` in order.
+   `0009_link_household_from_more.sql`, and `0010_fix_link_household_cleanup.sql`
+   in order.
 3. Click **Run** after each migration. The migrations are safe to re-run where
    their SQL comments/documentation say they are idempotent.
 

@@ -1,13 +1,9 @@
 -- ============================================================================
--- 0009_link_household_from_more.sql — switch an empty household to a partner
+-- 0010_fix_link_household_cleanup.sql — fix empty-household cleanup ordering
 -- ============================================================================
--- A user who accidentally created a separate empty household can now enter a
--- partner's invite code from More. Never merge or discard spending data: the
--- switch is allowed only while the current household has one member, no
--- transactions/plans, and its default budget is still zero.
-
-CREATE UNIQUE INDEX IF NOT EXISTS household_members_one_household_per_user
-  ON public.household_members (user_id);
+-- 0009 deleted audit rows before deleting the default budget. The budget audit
+-- trigger then recreated an audit row, preventing the household from being
+-- deleted by its foreign key. Delete the budget first, then its audit rows.
 
 CREATE OR REPLACE FUNCTION public.link_household_by_code(p_invite_code text)
 RETURNS uuid
@@ -99,12 +95,7 @@ BEGIN
   INSERT INTO public.household_members (household_id, user_id)
   VALUES (v_target_household_id, v_user_id);
 
-  -- Remove the abandoned bootstrap household only when this user created it.
-  -- Cascades clean up its zero budget and audit rows; no spending data passed
-  -- the guards above.
   IF v_current_creator = v_user_id THEN
-    -- Budget DELETE has an audit trigger, so remove the budget first and then
-    -- clean the audit rows it creates before deleting the household parent.
     DELETE FROM public.budgets
     WHERE household_id = v_current_household_id;
     DELETE FROM public.audit_log
@@ -116,6 +107,3 @@ BEGIN
   RETURN v_target_household_id;
 END;
 $$;
-
-REVOKE ALL ON FUNCTION public.link_household_by_code(text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.link_household_by_code(text) TO authenticated;
