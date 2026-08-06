@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Transaction } from '../lib/db';
 import PayerSelect from '../components/PayerSelect';
+import { Button } from '../components/ui/button';
+import { Field, FieldError, FieldLabel } from '../components/ui/field';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group';
+import { Textarea } from '../components/ui/textarea';
 import { useHouseholdMemberRoster } from '../lib/members';
 import { addTransaction, updateTransaction } from '../lib/transactions';
 import { useAuth } from '../lib/use-auth';
@@ -102,13 +106,11 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
     <section className="transaction-card" aria-labelledby="add-transaction-title">
       <h2 id="add-transaction-title">{editing ? 'Edit spending' : 'Add spending'}</h2>
       <form className="transaction-form" onSubmit={handleSubmit}>
-        <label className="field" htmlFor="transaction-amount">
-          <span className="field-label">Amount (RM)</span>
-          <span className="currency-input">
-            <span className="currency-prefix" aria-hidden="true">
-              RM
-            </span>
-            <input
+        <Field>
+          <FieldLabel htmlFor="transaction-amount">Amount</FieldLabel>
+          <InputGroup>
+            <InputGroupAddon aria-hidden="true">RM</InputGroupAddon>
+            <InputGroupInput
               ref={amountRef}
               id="transaction-amount"
               type="number"
@@ -122,12 +124,13 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
               placeholder="0.00"
               disabled={submitting}
             />
-          </span>
-        </label>
+          </InputGroup>
+        </Field>
 
-        <label className="field" htmlFor="transaction-spent-at">
-          <span className="field-label">When</span>
+        <Field>
+          <FieldLabel htmlFor="transaction-spent-at">When</FieldLabel>
           <input
+            className="ui-native-input"
             id="transaction-spent-at"
             type="datetime-local"
             required
@@ -135,7 +138,7 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
             onChange={(event) => setSpentAt(event.target.value)}
             disabled={submitting}
           />
-        </label>
+        </Field>
 
         <PayerSelect
           id="transaction-payer"
@@ -165,33 +168,31 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
           </div>
         </fieldset>
 
-        <label className="field" htmlFor="transaction-note">
-          <span className="field-label">
+        <Field>
+          <FieldLabel htmlFor="transaction-note">
             Note <span className="optional">(optional)</span>
-          </span>
-          <input
+          </FieldLabel>
+          <Textarea
             id="transaction-note"
-            type="text"
             value={note}
             onChange={(event) => setNote(event.target.value)}
             placeholder="What was this for?"
+            rows={3}
             disabled={submitting}
           />
-        </label>
+        </Field>
 
         {error && (
-          <p className="form-message form-error" role="alert">
-            {error}
-          </p>
+          <FieldError className="form-message">{error}</FieldError>
         )}
         {message && (
           <p className="form-message form-success" role="status">
             {message}
           </p>
         )}
-        <button className="btn-primary" type="submit" disabled={submitting}>
+        <Button className="w-full" type="submit" disabled={submitting}>
           {submitting ? 'Saving…' : editing ? 'Save changes' : 'Add transaction'}
-        </button>
+        </Button>
       </form>
     </section>
   );

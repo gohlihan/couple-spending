@@ -2,6 +2,9 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { Budget } from '../lib/db';
 import { saveBudget } from '../lib/budget';
 import { useAuth } from '../lib/use-auth';
+import { Button } from '../components/ui/button';
+import { Field, FieldError, FieldLabel } from '../components/ui/field';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group';
 
 interface BudgetSettingsProps {
   budget: Budget | null;
@@ -62,13 +65,11 @@ export default function BudgetSettings({ budget }: BudgetSettingsProps) {
       <h2 id="budget-settings-title">Budget settings</h2>
       <p className="muted">Set the shared monthly budget. It carries forward until changed.</p>
       <form className="transaction-form" onSubmit={handleSubmit}>
-        <label className="field" htmlFor="budget-amount">
-          <span className="field-label">Monthly amount (RM)</span>
-          <span className="currency-input">
-            <span className="currency-prefix" aria-hidden="true">
-              RM
-            </span>
-            <input
+        <Field>
+          <FieldLabel htmlFor="budget-amount">Monthly amount</FieldLabel>
+          <InputGroup>
+            <InputGroupAddon aria-hidden="true">RM</InputGroupAddon>
+            <InputGroupInput
               id="budget-amount"
               type="number"
               inputMode="decimal"
@@ -83,22 +84,20 @@ export default function BudgetSettings({ budget }: BudgetSettingsProps) {
               disabled={submitting}
               autoFocus
             />
-          </span>
-        </label>
+          </InputGroup>
+        </Field>
 
         {error && (
-          <p className="form-message form-error" role="alert">
-            {error}
-          </p>
+          <FieldError className="form-message">{error}</FieldError>
         )}
         {message && (
           <p className="form-message form-success" role="status">
             {message}
           </p>
         )}
-        <button className="btn-primary" type="submit" disabled={submitting}>
+        <Button className="w-full" type="submit" disabled={submitting}>
           {submitting ? 'Saving…' : 'Save budget'}
-        </button>
+        </Button>
       </form>
     </section>
   );

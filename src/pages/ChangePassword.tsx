@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { validatePasswordChange } from '../lib/password';
 import { supabase } from '../lib/supabase';
+import { Button } from '../components/ui/button';
+import { Field, FieldError, FieldLabel } from '../components/ui/field';
+import { Input } from '../components/ui/input';
 
 export default function ChangePassword() {
   const [password, setPassword] = useState('');
@@ -38,9 +41,9 @@ export default function ChangePassword() {
       <h2 id="change-password-title">Change password</h2>
       <p className="muted">Use a new password with at least 6 characters.</p>
       <form className="transaction-form" onSubmit={submit}>
-        <label className="field" htmlFor="new-password">
-          <span className="field-label">New password</span>
-          <input
+        <Field>
+          <FieldLabel htmlFor="new-password">New password</FieldLabel>
+          <Input
             id="new-password"
             type="password"
             autoComplete="new-password"
@@ -50,10 +53,10 @@ export default function ChangePassword() {
             onChange={(event) => setPassword(event.target.value)}
             disabled={submitting}
           />
-        </label>
-        <label className="field" htmlFor="confirm-password">
-          <span className="field-label">Confirm new password</span>
-          <input
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="confirm-password">Confirm new password</FieldLabel>
+          <Input
             id="confirm-password"
             type="password"
             autoComplete="new-password"
@@ -63,20 +66,18 @@ export default function ChangePassword() {
             onChange={(event) => setConfirmation(event.target.value)}
             disabled={submitting}
           />
-        </label>
+        </Field>
         {error && (
-          <p className="form-message form-error" role="alert">
-            {error}
-          </p>
+          <FieldError className="form-message">{error}</FieldError>
         )}
         {message && (
           <p className="form-message form-success" role="status">
             {message}
           </p>
         )}
-        <button type="submit" className="btn-primary" disabled={submitting}>
+        <Button className="w-full" type="submit" disabled={submitting}>
           {submitting ? 'Saving…' : 'Save new password'}
-        </button>
+        </Button>
       </form>
     </section>
   );

@@ -1,4 +1,5 @@
 import { shortId, type HouseholdMemberOption } from '../lib/members';
+import { Field, FieldLabel } from './ui/field';
 
 interface PayerSelectProps {
   id: string;
@@ -45,10 +46,11 @@ export default function PayerSelect({
   });
 
   return (
-    <label className="field" htmlFor={id}>
-      <span className="field-label">Paid by</span>
+    <Field>
+      <FieldLabel htmlFor={id}>Paid by</FieldLabel>
       <select
         id={id}
+        className="ui-native-input"
         required
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -64,6 +66,6 @@ export default function PayerSelect({
           </option>
         ))}
       </select>
-    </label>
+    </Field>
   );
 }

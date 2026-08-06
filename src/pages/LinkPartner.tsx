@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { linkHouseholdByCode, normalizeInviteCode } from '../lib/household';
 import { useAuth } from '../lib/use-auth';
+import { Button } from '../components/ui/button';
+import { Field, FieldError, FieldLabel } from '../components/ui/field';
+import { Input } from '../components/ui/input';
 
 export default function LinkPartner() {
   const { refreshMembership, setPendingSetup, clearAuthError } = useAuth();
@@ -37,9 +40,9 @@ export default function LinkPartner() {
         spending or plans yet.
       </p>
       <form className="transaction-form" onSubmit={submit}>
-        <label className="field" htmlFor="partner-invite-code">
-          <span className="field-label">Partner invite code</span>
-          <input
+        <Field>
+          <FieldLabel htmlFor="partner-invite-code">Partner invite code</FieldLabel>
+          <Input
             id="partner-invite-code"
             type="text"
             required
@@ -51,20 +54,18 @@ export default function LinkPartner() {
             spellCheck={false}
             disabled={submitting}
           />
-        </label>
+        </Field>
         {error && (
-          <p className="form-message form-error" role="alert">
-            {error}
-          </p>
+          <FieldError className="form-message">{error}</FieldError>
         )}
         {message && (
           <p className="form-message form-success" role="status">
             {message}
           </p>
         )}
-        <button type="submit" className="btn-primary" disabled={submitting}>
+        <Button className="w-full" type="submit" disabled={submitting}>
           {submitting ? 'Linking…' : 'Link household'}
-        </button>
+        </Button>
       </form>
     </section>
   );
