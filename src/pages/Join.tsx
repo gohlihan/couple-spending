@@ -7,6 +7,9 @@ import {
   normalizeInviteCode,
   readPendingInviteCode,
 } from '../lib/household';
+import { Button } from '../components/ui/button';
+import { Field, FieldLabel } from '../components/ui/field';
+import { Input } from '../components/ui/input';
 
 interface JoinProps {
   /** Invite code carried from the `?invite=` URL param, prefilled into the form. */
@@ -66,9 +69,10 @@ export default function Join({ initialInviteCode }: JoinProps) {
       </p>
 
       {mode === 'join' && (
-        <label className="field">
-          <span className="field-label">Invite code</span>
-          <input
+        <Field>
+          <FieldLabel htmlFor="join-invite-code">Invite code</FieldLabel>
+          <Input
+            id="join-invite-code"
             type="text"
             required
             value={inviteCode}
@@ -79,12 +83,13 @@ export default function Join({ initialInviteCode }: JoinProps) {
             autoCorrect="off"
             spellCheck={false}
           />
-        </label>
+        </Field>
       )}
 
-      <label className="field">
-        <span className="field-label">Your name</span>
-        <input
+      <Field>
+        <FieldLabel htmlFor="join-name">Your name</FieldLabel>
+        <Input
+          id="join-name"
           type="text"
           autoComplete="nickname"
           placeholder="e.g. Partner"
@@ -93,9 +98,9 @@ export default function Join({ initialInviteCode }: JoinProps) {
           onChange={(e) => setDisplayName(e.target.value)}
           disabled={submitting}
         />
-      </label>
+      </Field>
 
-      <button type="submit" className="btn-primary" disabled={submitting}>
+      <Button className="w-full" type="submit" disabled={submitting}>
         {submitting
           ? mode === 'join'
             ? 'Joining…'
@@ -103,26 +108,30 @@ export default function Join({ initialInviteCode }: JoinProps) {
           : mode === 'join'
             ? 'Join household'
             : 'Create household'}
-      </button>
+      </Button>
 
       {mode === 'join' ? (
-        <button
+        <Button
           type="button"
-          className="btn-link"
+          variant="link"
+          size="sm"
+          className="self-center px-0"
           onClick={() => setMode('create')}
           disabled={submitting}
         >
           Don’t have a code? Start a new household
-        </button>
+        </Button>
       ) : (
-        <button
+        <Button
           type="button"
-          className="btn-link"
+          variant="link"
+          size="sm"
+          className="self-center px-0"
           onClick={() => setMode('join')}
           disabled={submitting}
         >
           Have an invite code? Join instead
-        </button>
+        </Button>
       )}
     </form>
   );

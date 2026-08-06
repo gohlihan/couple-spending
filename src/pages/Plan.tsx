@@ -11,6 +11,9 @@ import {
   usePlannedItems,
 } from '../lib/planned-items';
 import { useAuth } from '../lib/use-auth';
+import { Button } from '../components/ui/button';
+import { Field, FieldError, FieldLabel } from '../components/ui/field';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group';
 
 const DATE_LABEL = new Intl.DateTimeFormat('en-MY', {
   day: 'numeric',
@@ -56,9 +59,10 @@ function PlanItemForm({ item, onDone }: { item: PlannedItem | null; onDone: () =
         </button>
       </div>
       <form className="transaction-form" onSubmit={submit}>
-        <label className="field" htmlFor="plan-title">
-          <span className="field-label">What do you need?</span>
+        <Field>
+          <FieldLabel htmlFor="plan-title">What do you need?</FieldLabel>
           <input
+            className="ui-native-input"
             id="plan-title"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -67,14 +71,12 @@ function PlanItemForm({ item, onDone }: { item: PlannedItem | null; onDone: () =
             disabled={submitting}
             autoFocus
           />
-        </label>
-        <label className="field" htmlFor="plan-amount">
-          <span className="field-label">Estimated amount (RM)</span>
-          <span className="currency-input">
-            <span className="currency-prefix" aria-hidden="true">
-              RM
-            </span>
-            <input
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="plan-amount">Estimated amount</FieldLabel>
+          <InputGroup>
+            <InputGroupAddon aria-hidden="true">RM</InputGroupAddon>
+            <InputGroupInput
               id="plan-amount"
               type="number"
               inputMode="decimal"
@@ -86,28 +88,27 @@ function PlanItemForm({ item, onDone }: { item: PlannedItem | null; onDone: () =
               required
               disabled={submitting}
             />
-          </span>
-        </label>
-        <label className="field" htmlFor="plan-date">
-          <span className="field-label">
+          </InputGroup>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="plan-date">
             Buy by <span className="optional">(optional)</span>
-          </span>
+          </FieldLabel>
           <input
+            className="ui-native-input"
             id="plan-date"
             type="date"
             value={plannedFor}
             onChange={(event) => setPlannedFor(event.target.value)}
             disabled={submitting}
           />
-        </label>
+        </Field>
         {error && (
-          <p className="form-message form-error" role="alert">
-            {error}
-          </p>
+          <FieldError className="form-message">{error}</FieldError>
         )}
-        <button type="submit" className="btn-primary" disabled={submitting}>
+        <Button className="w-full" type="submit" disabled={submitting}>
           {submitting ? 'Saving…' : item ? 'Save changes' : 'Add item'}
-        </button>
+        </Button>
       </form>
     </section>
   );

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { inviteSharePath } from '../lib/household';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/use-auth';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 
 /**
  * Shows the household's invite code and a shareable link so the first user can
@@ -59,17 +61,20 @@ export default function Invite() {
         <>
           <div className="invite-code-row">
             <code className="invite-code">{code}</code>
-            <button type="button" className="btn-secondary" onClick={() => copy(code)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => copy(code)}>
               Copy code
-            </button>
+            </Button>
           </div>
 
           {shareLink && (
             <div className="invite-link-row">
-              <input readOnly value={shareLink} className="invite-link" />
-              <button type="button" className="btn-secondary" onClick={() => copy(shareLink)}>
+              <label className="sr-only" htmlFor="invite-share-link">
+                Shareable invite link
+              </label>
+              <Input id="invite-share-link" readOnly value={shareLink} className="invite-link" />
+              <Button type="button" variant="outline" size="sm" onClick={() => copy(shareLink)}>
                 Copy link
-              </button>
+              </Button>
             </div>
           )}
 

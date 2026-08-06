@@ -182,6 +182,27 @@ input:focus-visible {
   color: var(--ink);
 }
 
+.ui-native-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--field);
+  color: var(--ink);
+  outline: none;
+}
+
+.ui-native-input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.ui-native-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .field input:disabled {
   opacity: 0.55;
 }

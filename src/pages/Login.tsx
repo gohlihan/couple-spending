@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/use-auth'
+import { Button } from '../components/ui/button'
+import { Field, FieldLabel } from '../components/ui/field'
+import { Input } from '../components/ui/input'
 
 interface LoginProps {
   onSwitchToSignup: () => void
@@ -35,9 +38,10 @@ export default function Login({ onSwitchToSignup }: LoginProps) {
       <h1 className="auth-title">Couple Spending</h1>
       <p className="auth-subtitle">Log in to your shared budget</p>
 
-      <label className="field">
-        <span className="field-label">Email</span>
-        <input
+      <Field>
+        <FieldLabel htmlFor="login-email">Email</FieldLabel>
+        <Input
+          id="login-email"
           type="email"
           autoComplete="email"
           required
@@ -45,11 +49,12 @@ export default function Login({ onSwitchToSignup }: LoginProps) {
           onChange={(e) => setEmail(e.target.value)}
           disabled={submitting}
         />
-      </label>
+      </Field>
 
-      <label className="field">
-        <span className="field-label">Password</span>
-        <input
+      <Field>
+        <FieldLabel htmlFor="login-password">Password</FieldLabel>
+        <Input
+          id="login-password"
           type="password"
           autoComplete="current-password"
           required
@@ -57,15 +62,22 @@ export default function Login({ onSwitchToSignup }: LoginProps) {
           onChange={(e) => setPassword(e.target.value)}
           disabled={submitting}
         />
-      </label>
+      </Field>
 
-      <button type="submit" className="btn-primary" disabled={submitting}>
+      <Button className="w-full" type="submit" disabled={submitting}>
         {submitting ? 'Logging in…' : 'Log in'}
-      </button>
+      </Button>
 
-      <button type="button" className="btn-link" onClick={onSwitchToSignup} disabled={submitting}>
+      <Button
+        type="button"
+        variant="link"
+        size="sm"
+        className="self-center px-0"
+        onClick={onSwitchToSignup}
+        disabled={submitting}
+      >
         New here? Create an account
-      </button>
+      </Button>
     </form>
   )
 }

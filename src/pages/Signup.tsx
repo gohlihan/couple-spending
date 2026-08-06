@@ -9,6 +9,9 @@ import {
   readPendingInviteCode,
   rememberPendingInviteCode,
 } from '../lib/household';
+import { Button } from '../components/ui/button';
+import { Field, FieldLabel } from '../components/ui/field';
+import { Input } from '../components/ui/input';
 
 interface SignupProps {
   /** Invite code carried from the `?invite=` URL param. When present, signup
@@ -94,9 +97,10 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
         {joining ? 'Create your account to join the household' : 'Create your account'}
       </p>
 
-      <label className="field">
-        <span className="field-label">Email</span>
-        <input
+      <Field>
+        <FieldLabel htmlFor="signup-email">Email</FieldLabel>
+        <Input
+          id="signup-email"
           type="email"
           autoComplete="email"
           required
@@ -104,11 +108,12 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
           onChange={(e) => setEmail(e.target.value)}
           disabled={submitting}
         />
-      </label>
+      </Field>
 
-      <label className="field">
-        <span className="field-label">Password</span>
-        <input
+      <Field>
+        <FieldLabel htmlFor="signup-password">Password</FieldLabel>
+        <Input
+          id="signup-password"
           type="password"
           autoComplete="new-password"
           minLength={6}
@@ -117,13 +122,14 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
           onChange={(e) => setPassword(e.target.value)}
           disabled={submitting}
         />
-      </label>
+      </Field>
 
-      <label className="field">
-        <span className="field-label">
+      <Field>
+        <FieldLabel htmlFor="signup-invite-code">
           Invite code <span className="optional">(optional)</span>
-        </span>
-        <input
+        </FieldLabel>
+        <Input
+          id="signup-invite-code"
           type="text"
           autoComplete="off"
           value={inviteCode}
@@ -138,11 +144,12 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
           autoCorrect="off"
           spellCheck={false}
         />
-      </label>
+      </Field>
 
-      <label className="field">
-        <span className="field-label">Your name</span>
-        <input
+      <Field>
+        <FieldLabel htmlFor="signup-name">Your name</FieldLabel>
+        <Input
+          id="signup-name"
           type="text"
           autoComplete="nickname"
           placeholder="e.g. Han"
@@ -151,15 +158,22 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
           onChange={(e) => setDisplayName(e.target.value)}
           disabled={submitting}
         />
-      </label>
+      </Field>
 
-      <button type="submit" className="btn-primary" disabled={submitting}>
+      <Button className="w-full" type="submit" disabled={submitting}>
         {submitting ? 'Creating account…' : 'Sign up'}
-      </button>
+      </Button>
 
-      <button type="button" className="btn-link" onClick={onSwitchToLogin} disabled={submitting}>
+      <Button
+        type="button"
+        variant="link"
+        size="sm"
+        className="self-center px-0"
+        onClick={onSwitchToLogin}
+        disabled={submitting}
+      >
         Already have an account? Log in
-      </button>
+      </Button>
     </form>
   );
 }
