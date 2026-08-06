@@ -144,6 +144,7 @@ export async function removePlannedItem(existing: PlannedItem, author: PlanAutho
 export async function completePlannedItem(
   existing: PlannedItem,
   author: PlanAuthor,
+  payerId?: string | null,
 ): Promise<PlanCompletionPayload> {
   assertPlanAuthor(author);
   if (existing.household_id !== author.householdId || existing.completed_at) {
@@ -151,6 +152,7 @@ export async function completePlannedItem(
   }
 
   const now = nextLocalUpdatedAt(new Date(), existing.updated_at);
+  const selectedPayerId = payerId?.trim() || author.user.id;
   const completionClientId = crypto.randomUUID();
   const transactionId = crypto.randomUUID();
   const transactionClientId = `${completionClientId}:transaction`;
@@ -161,6 +163,7 @@ export async function completePlannedItem(
     spent_at: now,
     note: existing.title,
     chip: 'shop',
+    payer_id: selectedPayerId,
     created_by: author.user.id,
     created_at: now,
     updated_at: now,

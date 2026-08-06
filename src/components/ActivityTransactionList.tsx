@@ -36,11 +36,11 @@ function dateFromKey(key: string): Date {
 
 function TransactionRow({
   transaction,
-  memberName,
+  payerName,
   onOpen,
 }: {
   transaction: Transaction;
-  memberName: string;
+  payerName: string;
   onOpen: () => void;
 }) {
   return (
@@ -57,7 +57,7 @@ function TransactionRow({
         <span className="activity-transaction-copy">
           <span className="transaction-row-title">{titleFor(transaction)}</span>
           <span className="transaction-row-meta">
-            {TIME_LABEL.format(new Date(transaction.spent_at))} · {memberName}
+            {TIME_LABEL.format(new Date(transaction.spent_at))} · Paid by {payerName}
           </span>
         </span>
         <span className="transaction-row-amount">{formatCurrency(transaction.amount)}</span>
@@ -92,7 +92,10 @@ export default function ActivityTransactionList({
               <TransactionRow
                 key={transaction.id}
                 transaction={transaction}
-                memberName={memberNames[transaction.created_by] ?? shortId(transaction.created_by)}
+                payerName={
+                  memberNames[transaction.payer_id ?? transaction.created_by] ??
+                  shortId(transaction.payer_id ?? transaction.created_by)
+                }
                 onOpen={() => onOpen(transaction)}
               />
             ))}

@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
+import PayerSelect from '../components/PayerSelect';
 import type { PlannedItem } from '../lib/db';
 import { formatCurrency } from '../lib/currency';
-import { shortId, type MemberNames } from '../lib/members';
+import { shortId, type MemberNames, useHouseholdMemberRoster } from '../lib/members';
 import {
   addPlannedItem,
   completePlannedItem,
@@ -113,22 +114,41 @@ function PlanItemForm({ item, onDone }: { item: PlannedItem | null; onDone: () =
 }
 
 export default function Plan({ memberNames }: { memberNames: MemberNames }) {
-  const { user, householdId } = useAuth();
+  const { user, displayName, householdId } = useAuth();
+  const members = useHouseholdMemberRoster(householdId);
   const items = usePlannedItems(householdId);
   const [formItem, setFormItem] = useState<PlannedItem | null | undefined>(undefined);
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  const [completionItem, setCompletionItem] = useState<PlannedItem | null>(null);
+  const [completionPayerId, setCompletionPayerId] = useState('');
+  const [completionError, setCompletionError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const activeItems = items.filter((item) => !item.completed_at);
   const historyItems = items.filter((item) => item.completed_at);
 
-  async function complete(item: PlannedItem) {
-    setBusyItemId(item.id);
+  function beginCompletion(item: PlannedItem) {
+    setCompletionItem(item);
+    setCompletionPayerId(user?.id ?? item.created_by);
+    setCompletionError(null);
     setMessage(null);
+  }
+
+  function cancelCompletion() {
+    if (busyItemId) return;
+    setCompletionItem(null);
+    setCompletionError(null);
+  }
+
+  async function complete() {
+    if (!completionItem) return;
+    setBusyItemId(completionItem.id);
+    setCompletionError(null);
     try {
-      await completePlannedItem(item, { user, householdId });
-      setMessage(`${item.title} was added to spending.`);
+      await completePlannedItem(completionItem, { user, householdId }, completionPayerId);
+      setCompletionItem(null);
+      setMessage(`${completionItem.title} was added to spending.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not complete this item.');
+      setCompletionError(error instanceof Error ? error.message : 'Could not complete this item.');
     } finally {
       setBusyItemId(null);
     }
@@ -185,7 +205,7 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
                   aria-label={`Mark ${item.title} as purchased`}
                   checked={false}
                   disabled={busyItemId === item.id}
-                  onChange={() => void complete(item)}
+                  onChange={() => beginCompletion(item)}
                 />
                 <div className="plan-item-copy">
                   <p>{item.title}</p>
@@ -216,6 +236,64 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
           </ol>
         )}
       </section>
+
+      {completionItem && (
+        <div
+          className="sheet-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="complete-plan-title"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) cancelCompletion();
+          }}
+        >
+          <div className="sheet">
+            <div className="sheet-handle-row">
+              <button
+                type="button"
+                className="sheet-close-button"
+                onClick={cancelCompletion}
+                disabled={Boolean(busyItemId)}
+              >
+                Cancel
+              </button>
+            </div>
+            <section className="plan-form-card" aria-labelledby="complete-plan-title">
+              <p className="section-eyebrow">Move to spending</p>
+              <h2 id="complete-plan-title">{completionItem.title}</h2>
+              <p className="muted">
+                {formatCurrency(completionItem.amount)} will be added to this month’s spending.
+              </p>
+              <form
+                className="transaction-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void complete();
+                }}
+              >
+                <PayerSelect
+                  id="completion-payer"
+                  value={completionPayerId}
+                  members={members}
+                  currentUserId={user?.id ?? ''}
+                  currentUserName={displayName}
+                  additionalUserIds={[completionItem.created_by]}
+                  disabled={Boolean(busyItemId)}
+                  onChange={setCompletionPayerId}
+                />
+                {completionError && (
+                  <p className="form-message form-error" role="alert">
+                    {completionError}
+                  </p>
+                )}
+                <button type="submit" className="btn-primary" disabled={Boolean(busyItemId)}>
+                  {busyItemId ? 'Saving…' : 'Mark as purchased'}
+                </button>
+              </form>
+            </section>
+          </div>
+        </div>
+      )}
 
       <section className="plan-list-section plan-history" aria-labelledby="plan-history-title">
         <div className="section-title-row">

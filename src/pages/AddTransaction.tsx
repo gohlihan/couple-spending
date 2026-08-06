@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Transaction } from '../lib/db';
+import PayerSelect from '../components/PayerSelect';
+import { useHouseholdMemberRoster } from '../lib/members';
 import { addTransaction, updateTransaction } from '../lib/transactions';
 import { useAuth } from '../lib/use-auth';
 
@@ -17,7 +19,8 @@ interface AddTransactionProps {
 
 /** One accessible form for both new spending and Phase-7 transaction edits. */
 export default function AddTransaction({ transaction, onSaved }: AddTransactionProps) {
-  const { user, householdId } = useAuth();
+  const { user, displayName, householdId } = useAuth();
+  const members = useHouseholdMemberRoster(householdId);
   const amountRef = useRef<HTMLInputElement>(null);
   const [amount, setAmount] = useState(transaction ? String(transaction.amount) : '');
   const [spentAt, setSpentAt] = useState(() =>
@@ -25,6 +28,9 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
   );
   const [note, setNote] = useState(transaction?.note ?? '');
   const [chip, setChip] = useState(transaction?.chip ?? '');
+  const [payerId, setPayerId] = useState(
+    transaction?.payer_id || transaction?.created_by || user?.id || '',
+  );
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,9 +43,10 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
     );
     setNote(transaction?.note ?? '');
     setChip(transaction?.chip ?? '');
+    setPayerId(transaction?.payer_id || transaction?.created_by || user?.id || '');
     setMessage(null);
     setError(null);
-  }, [transaction]);
+  }, [transaction, user?.id]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -66,6 +73,7 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
         spentAt: parsedSpentAt.toISOString(),
         note,
         chip,
+        payerId,
       };
       const saved = transaction
         ? await updateTransaction(transaction, input, { user, householdId })
@@ -79,6 +87,7 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
         setSpentAt(localDateTimeValue());
         setNote('');
         setChip('');
+        setPayerId(user?.id ?? '');
         setMessage('Transaction saved locally.');
         amountRef.current?.focus();
       }
@@ -127,6 +136,17 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
             disabled={submitting}
           />
         </label>
+
+        <PayerSelect
+          id="transaction-payer"
+          value={payerId}
+          members={members}
+          currentUserId={user?.id ?? ''}
+          currentUserName={displayName}
+          additionalUserIds={transaction ? [transaction.created_by] : []}
+          disabled={submitting}
+          onChange={setPayerId}
+        />
 
         <fieldset className="chip-fieldset" disabled={submitting}>
           <legend className="field-label">Quick tag</legend>

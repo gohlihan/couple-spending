@@ -103,8 +103,9 @@ export default function Statistics({
                 <div>
                   <p>{titleFor(transaction)}</p>
                   <span>
-                    {TIME_LABEL.format(new Date(transaction.spent_at))} ·{' '}
-                    {memberNames[transaction.created_by] ?? shortId(transaction.created_by)}
+                    {TIME_LABEL.format(new Date(transaction.spent_at))} · Paid by{' '}
+                    {memberNames[transaction.payer_id ?? transaction.created_by] ??
+                      shortId(transaction.payer_id ?? transaction.created_by)}
                   </span>
                 </div>
                 <strong>{formatCurrency(transaction.amount)}</strong>

@@ -7,6 +7,8 @@ export interface Transaction {
   spent_at: string;
   note: string | null;
   chip: string | null;
+  /** The household member who actually paid; nullable only for legacy rows. */
+  payer_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -67,6 +69,15 @@ export interface PendingChange {
   attempts: number;
   /** ISO time of the last failed delivery, used for exponential backoff. */
   last_attempt_at?: string;
+}
+
+function backfillTransactionPayer(payload: unknown): void {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
+  const record = payload as Record<string, unknown>;
+  if (!record.payer_id && typeof record.created_by === 'string') {
+    record.payer_id = record.created_by;
+  }
+  if (record.transaction) backfillTransactionPayer(record.transaction);
 }
 
 class CoupleSpendingDatabase extends Dexie {
@@ -136,6 +147,33 @@ class CoupleSpendingDatabase extends Dexie {
       household_members: 'id, household_id',
       audit_log: 'id, household_id, record_id',
     });
+
+    // Payer attribution was added after the original local schema. Backfill
+    // cached rows and queued transaction/completion payloads from created_by
+    // so an upgrade never drops an offline write.
+    this.version(5)
+      .stores({
+        transactions: 'id, household_id, spent_at, &client_id, deleted_at',
+        budgets: 'id, household_id',
+        plannedItems: 'id, household_id, planned_for, completed_at, &client_id',
+        pendingChanges: 'client_id, household_id, status, created_at',
+        household_members: 'id, household_id',
+        audit_log: 'id, household_id, record_id',
+      })
+      .upgrade((transaction) =>
+        transaction
+          .table('transactions')
+          .toCollection()
+          .modify((row: Transaction) => {
+            if (!row.payer_id) row.payer_id = row.created_by || null;
+          })
+          .then(() =>
+            transaction
+              .table('pendingChanges')
+              .toCollection()
+              .modify((change: PendingChange) => backfillTransactionPayer(change.payload)),
+          ),
+      );
   }
 }
 

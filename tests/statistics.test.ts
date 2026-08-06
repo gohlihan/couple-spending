@@ -11,6 +11,7 @@ function transaction(overrides: Partial<Transaction>): Transaction {
     spent_at: '2026-07-27T03:00:00.000Z',
     note: null,
     chip: null,
+    payer_id: 'user-1',
     created_by: 'user-1',
     created_at: '2026-07-27T03:00:00.000Z',
     updated_at: '2026-07-27T03:00:00.000Z',

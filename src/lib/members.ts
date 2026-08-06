@@ -4,9 +4,14 @@ import { supabase } from './supabase';
 /** Map of `user_id` → display name for a household's members. */
 export type MemberNames = Record<string, string>;
 
+export interface HouseholdMemberOption {
+  userId: string;
+  displayName: string | null;
+}
+
 // Module-level cache so the member roster is fetched at most once per household
 // per session (it changes rarely — a household is capped at two members).
-const cache = new Map<string, MemberNames>();
+const rosterCache = new Map<string, HouseholdMemberOption[]>();
 
 /** Shorten a user id for a readable fallback when no display name is set. */
 export function shortId(userId: string): string {
@@ -17,22 +22,23 @@ export function shortId(userId: string): string {
  * Resolve household member display names, fetched once from Supabase and
  * cached. Falls back to a short id in the consumer when a name is missing.
  */
-export function useHouseholdMembers(householdId: string | null): MemberNames {
-  const [names, setNames] = useState<MemberNames>(() =>
-    householdId ? (cache.get(householdId) ?? {}) : {},
+export function useHouseholdMemberRoster(householdId: string | null): HouseholdMemberOption[] {
+  const [members, setMembers] = useState<HouseholdMemberOption[]>(() =>
+    householdId ? (rosterCache.get(householdId) ?? []) : [],
   );
 
   useEffect(() => {
     if (!householdId) {
-      setNames({});
+      setMembers([]);
       return;
     }
 
-    const cached = cache.get(householdId);
+    const cached = rosterCache.get(householdId);
     if (cached) {
-      setNames(cached);
+      setMembers(cached);
       return;
     }
+    setMembers([]);
 
     let active = true;
     void (async () => {
@@ -42,14 +48,16 @@ export function useHouseholdMembers(householdId: string | null): MemberNames {
           .select('user_id, display_name')
           .eq('household_id', householdId);
         if (error || !data) return;
-        const map: MemberNames = {};
+        const roster: HouseholdMemberOption[] = [];
         for (const row of data) {
-          if (row.display_name) map[row.user_id] = row.display_name;
+          if (row.user_id) {
+            roster.push({ userId: row.user_id, displayName: row.display_name ?? null });
+          }
         }
-        cache.set(householdId, map);
-        if (active) setNames(map);
+        rosterCache.set(householdId, roster);
+        if (active) setMembers(roster);
       } catch (error: unknown) {
-        console.warn('Could not load household member names.', error);
+        console.warn('Could not load household members.', error);
       }
     })();
 
@@ -58,5 +66,14 @@ export function useHouseholdMembers(householdId: string | null): MemberNames {
     };
   }, [householdId]);
 
+  return members;
+}
+
+export function useHouseholdMembers(householdId: string | null): MemberNames {
+  const members = useHouseholdMemberRoster(householdId);
+  const names: MemberNames = {};
+  for (const member of members) {
+    if (member.displayName) names[member.userId] = member.displayName;
+  }
   return names;
 }

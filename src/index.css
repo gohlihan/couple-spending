@@ -1,3 +1,5 @@
+@import 'tailwindcss';
+
 :root {
   color-scheme: light;
   font-synthesis: none;
@@ -22,6 +24,27 @@
   --radius-control: 14px;
   --safe-top: max(16px, env(safe-area-inset-top));
   --safe-bottom: max(16px, env(safe-area-inset-bottom));
+
+  /* shadcn semantic aliases keep generated primitives on the product palette. */
+  --ui-background: var(--canvas);
+  --ui-foreground: var(--ink);
+  --ui-card: var(--surface);
+  --ui-card-foreground: var(--ink);
+  --ui-popover: var(--surface);
+  --ui-popover-foreground: var(--ink);
+  --ui-primary: var(--accent);
+  --ui-primary-foreground: #ffffff;
+  --ui-secondary: var(--field);
+  --ui-secondary-foreground: var(--ink);
+  --ui-muted: var(--field);
+  --ui-muted-foreground: var(--muted);
+  --ui-accent: var(--accent-soft);
+  --ui-accent-foreground: var(--accent);
+  --ui-destructive: var(--danger);
+  --ui-border: var(--line);
+  --ui-input: var(--line);
+  --ui-ring: var(--accent);
+  --ui-radius: var(--radius-control);
   font-family:
     ui-sans-serif,
     -apple-system,
@@ -30,6 +53,32 @@
     sans-serif;
   color: var(--ink);
   background: var(--canvas);
+}
+
+@theme inline {
+  --color-background: var(--ui-background);
+  --color-foreground: var(--ui-foreground);
+  --color-card: var(--ui-card);
+  --color-card-foreground: var(--ui-card-foreground);
+  --color-popover: var(--ui-popover);
+  --color-popover-foreground: var(--ui-popover-foreground);
+  --color-primary: var(--ui-primary);
+  --color-primary-foreground: var(--ui-primary-foreground);
+  --color-secondary: var(--ui-secondary);
+  --color-secondary-foreground: var(--ui-secondary-foreground);
+  --color-muted: var(--ui-muted);
+  --color-muted-foreground: var(--ui-muted-foreground);
+  --color-accent: var(--ui-accent);
+  --color-accent-foreground: var(--ui-accent-foreground);
+  --color-destructive: var(--ui-destructive);
+  --color-border: var(--ui-border);
+  --color-input: var(--ui-input);
+  --color-ring: var(--ui-ring);
+  --radius-sm: calc(var(--ui-radius) * 0.7);
+  --radius-md: calc(var(--ui-radius) * 0.85);
+  --radius-lg: var(--ui-radius);
+  --radius-xl: calc(var(--ui-radius) * 1.4);
+  --radius-2xl: calc(var(--ui-radius) * 1.8);
 }
 
 * {
@@ -122,6 +171,7 @@ input:focus-visible {
 }
 
 .field input,
+.field select,
 .invite-link {
   width: 100%;
   min-height: 48px;
@@ -133,6 +183,10 @@ input:focus-visible {
 }
 
 .field input:disabled {
+  opacity: 0.55;
+}
+
+.field select:disabled {
   opacity: 0.55;
 }
 

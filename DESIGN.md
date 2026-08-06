@@ -87,6 +87,9 @@ the SPA talks to Supabase directly over HTTPS, gated by Row Level Security.
 - Each transaction **auto-stamps `created_by`** = the logged-in user who added
   it. Zero added friction; gives an audit trail and lets the waterfall show
   "who entered it." **Requires two logins.**
+- Each transaction also stores `payer_id`, defaulting to the logged-in user but
+  selectable as either household partner. Payer and entry actor are separate so
+  one partner can record spending the other paid.
 
 ### 3.2 Budgeting approach
 - **Monthly cycle:** month-end **auto-closes** the month and **resets** the
@@ -99,12 +102,13 @@ the SPA talks to Supabase directly over HTTPS, gated by Row Level Security.
 
 ### 3.3 Input workflow
 - **Amount** (required) → **timestamp** (defaults to system *now*; tap to pick
-  another date/time) → optional **note** with **quick-input chips**
-  (eat, shop, petrol, …). Minimal fields = low friction = daily adoption.
+  another date/time) → **payer** (defaults to the current user) → optional
+  **note** with **quick-input chips** (eat, shop, petrol, …). Minimal fields =
+  low friction = daily adoption.
 
 ### 3.4 Display
 - **Waterfall timeline:** chronological stream of transactions with the monthly
-  budget depleting as each spend lands; can show who entered each entry.
+  budget depleting as each spend lands; shows who paid each entry.
 - **Top date bar:** click to select any month to view & edit; defaults to the
   current month.
 
@@ -177,6 +181,7 @@ per household is the "current" amount; month reset does not touch it.
 | `spent_at`    | timestamptz       | user-chosen timestamp; defaults to now() at entry|
 | `note`        | text              | optional                                          |
 | `chip`        | text              | optional soft tag: 'eat'/'shop'/'petrol'          |
+| `payer_id`    | uuid → auth.users  | same-household member who paid; defaults to the entry actor |
 | `created_by`  | uuid → auth.users | who entered it (auto-stamped)                     |
 | `created_at`  | timestamptz       | default now()                                     |
 | `updated_at`  | timestamptz       | default now() — last-write-wins key              |
@@ -231,6 +236,9 @@ create policy "txns: household-scoped" on public.transactions
   < 2 members, and inserts a `household_members` row for `auth.uid()`. This is
   the one path that lets a user cross the household boundary (legitimately).
 - `household_members` membership cap (≤ 2): enforced by a trigger on insert.
+- `transactions.payer_id` must reference a member of the same household via a
+  composite foreign key; the database defaults omitted payer values to the
+  authenticated actor for older offline clients.
 
 **Hardening notes (must get right):** financial data ⇒ RLS must be airtight.
 Every policy must use `current_household_id()` for both `using` (visibility)

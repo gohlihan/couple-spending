@@ -32,7 +32,7 @@ export default function Waterfall({ transactions, budget, memberNames }: Waterfa
     return { transaction, remaining: budgetAmount === null ? null : running };
   });
 
-  const whoEntered = (userId: string) => memberNames[userId] ?? shortId(userId);
+  const whoPaid = (userId: string) => memberNames[userId] ?? shortId(userId);
 
   return (
     <section className="waterfall" aria-label="Spending timeline">
@@ -61,9 +61,7 @@ export default function Waterfall({ transactions, budget, memberNames }: Waterfa
           {rows.map(({ transaction, remaining: rowRemaining }) => (
             <li key={transaction.id} className="waterfall-item">
               <div className="waterfall-item-main">
-                <span className="waterfall-item-amount">
-                  −{formatCurrency(transaction.amount)}
-                </span>
+                <span className="waterfall-item-amount">−{formatCurrency(transaction.amount)}</span>
                 <span className="waterfall-item-running">
                   {rowRemaining === null ? '' : formatCurrency(rowRemaining)}
                 </span>
@@ -72,14 +70,12 @@ export default function Waterfall({ transactions, budget, memberNames }: Waterfa
                 <span className="waterfall-item-time">
                   {TIME_LABEL.format(new Date(transaction.spent_at))}
                 </span>
-                {transaction.chip && (
-                  <span className="waterfall-chip">{transaction.chip}</span>
-                )}
-                <span className="waterfall-item-who">{whoEntered(transaction.created_by)}</span>
+                {transaction.chip && <span className="waterfall-chip">{transaction.chip}</span>}
+                <span className="waterfall-item-who">
+                  Paid by {whoPaid(transaction.payer_id ?? transaction.created_by)}
+                </span>
               </div>
-              {transaction.note && (
-                <p className="waterfall-item-note">{transaction.note}</p>
-              )}
+              {transaction.note && <p className="waterfall-item-note">{transaction.note}</p>}
             </li>
           ))}
         </ol>

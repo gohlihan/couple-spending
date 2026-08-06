@@ -7,6 +7,7 @@ export interface AddTransactionInput {
   spentAt?: string;
   note?: string;
   chip?: string;
+  payerId?: string | null;
   plannedItemId?: string | null;
 }
 
@@ -30,22 +31,27 @@ function assertAmount(amount: number): void {
   }
 }
 
-function normalizeInput(input: AddTransactionInput): Required<
-  Pick<AddTransactionInput, 'amount'>
-> & {
+function normalizeInput(
+  input: AddTransactionInput,
+  fallbackPayerId: string,
+): Required<Pick<AddTransactionInput, 'amount'>> & {
   spentAt: string;
   note: string | null;
   chip: string | null;
+  payerId: string;
   plannedItemId: string | null;
 } {
   assertAmount(input.amount);
   const spentAt = input.spentAt ?? nextLocalUpdatedAt();
   if (Number.isNaN(Date.parse(spentAt))) throw new Error('Choose a valid date and time.');
+  const payerId = input.payerId?.trim() || fallbackPayerId;
+  if (!payerId) throw new Error('Choose who paid for this transaction.');
   return {
     amount: input.amount,
     spentAt,
     note: input.note?.trim() || null,
     chip: input.chip || null,
+    payerId,
     plannedItemId: input.plannedItemId ?? null,
   };
 }
@@ -77,7 +83,7 @@ export async function addTransaction(
   author: TransactionAuthor,
 ): Promise<Transaction> {
   assertTransactionAuthor(author);
-  const normalized = normalizeInput(input);
+  const normalized = normalizeInput(input, author.user.id);
   const now = nextLocalUpdatedAt();
   const id = crypto.randomUUID();
   const clientId = crypto.randomUUID();
@@ -88,6 +94,7 @@ export async function addTransaction(
     spent_at: normalized.spentAt,
     note: normalized.note,
     chip: normalized.chip,
+    payer_id: normalized.payerId,
     created_by: author.user.id,
     created_at: now,
     updated_at: now,
@@ -115,13 +122,17 @@ export async function updateTransaction(
   if (existing.household_id !== author.householdId || existing.deleted_at) {
     throw new Error('This transaction can no longer be edited.');
   }
-  const normalized = normalizeInput({ ...input, plannedItemId: existing.planned_item_id });
+  const normalized = normalizeInput(
+    { ...input, plannedItemId: existing.planned_item_id },
+    existing.payer_id || existing.created_by || author.user.id,
+  );
   const updated: Transaction = {
     ...existing,
     amount: normalized.amount,
     spent_at: normalized.spentAt,
     note: normalized.note,
     chip: normalized.chip,
+    payer_id: normalized.payerId,
     updated_at: nextLocalUpdatedAt(new Date(), existing.updated_at),
     updated_by: author.user.id,
   };

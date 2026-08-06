@@ -14,7 +14,7 @@ export const SYNC_INTERVAL_MS = 30_000;
 const MAX_RETRY_DELAY_MS = 5 * 60_000;
 
 const TRANSACTION_COLUMNS =
-  'id, household_id, amount, spent_at, note, chip, created_by, created_at, updated_at, updated_by, deleted_at, deleted_by, client_id';
+  'id, household_id, amount, spent_at, note, chip, payer_id, created_by, created_at, updated_at, updated_by, deleted_at, deleted_by, client_id, planned_item_id';
 const BUDGET_COLUMNS = 'id, household_id, amount, updated_at, updated_by';
 const PLANNED_ITEM_COLUMNS =
   'id, household_id, title, amount, planned_for, created_by, created_at, updated_at, updated_by, completed_at, completed_by, spent_transaction_id, completion_client_id, client_id';
@@ -26,6 +26,7 @@ const TRANSACTION_UPSERT_FIELDS = [
   'spent_at',
   'note',
   'chip',
+  'payer_id',
   'created_by',
   'created_at',
   'updated_at',
@@ -111,6 +112,7 @@ function toTransaction(row: RemoteRecord, householdId: string): Transaction | nu
   }
 
   const clientId = asString(row.client_id);
+  const createdBy = asString(row.created_by) ?? '';
   observeUpdatedAt(updatedAt ?? createdAt);
   return {
     id,
@@ -119,9 +121,10 @@ function toTransaction(row: RemoteRecord, householdId: string): Transaction | nu
     spent_at: spentAt,
     note: asString(row.note),
     chip: asString(row.chip),
+    payer_id: asString(row.payer_id) ?? (createdBy || null),
     // These columns are populated by the database for new rows. Empty-string
     // fallbacks keep an older nullable row displayable in the local cache.
-    created_by: asString(row.created_by) ?? '',
+    created_by: createdBy,
     created_at: createdAt,
     updated_at: updatedAt ?? createdAt,
     updated_by: asString(row.updated_by),
@@ -1006,10 +1009,18 @@ class SyncEngine {
     const completionClientId = asString(payload.completion_client_id);
     if (!completionClientId) throw new Error('Queued planned item completion has no client id');
 
-    const { data, error } = await supabase.rpc('complete_planned_item', {
-      p_planned_item_id: change.record_id,
-      p_completion_client_id: completionClientId,
-    });
+    const payerId = asString(payloadObject(payload.transaction).payer_id);
+    const result = payerId
+      ? await supabase.rpc('complete_planned_item', {
+          p_planned_item_id: change.record_id,
+          p_completion_client_id: completionClientId,
+          p_payer_id: payerId,
+        })
+      : await supabase.rpc('complete_planned_item', {
+          p_planned_item_id: change.record_id,
+          p_completion_client_id: completionClientId,
+        });
+    const { data, error } = result;
     if (error) throw error;
     if (this.stopped) return;
 
@@ -1345,7 +1356,10 @@ class SyncEngine {
         .toArray();
       if (this.stopped) return;
       if (shouldApplyRemote(versionOf(remote), local ? versionOf(local) : null, pending)) {
-        const optimistic = await db.transactions.where('client_id').equals(remote.client_id).first();
+        const optimistic = await db.transactions
+          .where('client_id')
+          .equals(remote.client_id)
+          .first();
         if (optimistic && optimistic.id !== remote.id) await db.transactions.delete(optimistic.id);
         await db.transactions.put(remote);
       }

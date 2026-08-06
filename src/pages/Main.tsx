@@ -524,6 +524,20 @@ export default function Main({ onSignOut }: MainProps) {
                   <dd>{new Date(detailTransaction.spent_at).toLocaleString('en-MY')}</dd>
                 </div>
                 <div>
+                  <dt>Paid by</dt>
+                  <dd>
+                    {memberNames[detailTransaction.payer_id ?? detailTransaction.created_by] ??
+                      shortId(detailTransaction.payer_id ?? detailTransaction.created_by)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Logged by</dt>
+                  <dd>
+                    {memberNames[detailTransaction.created_by] ??
+                      shortId(detailTransaction.created_by)}
+                  </dd>
+                </div>
+                <div>
                   <dt>Tag</dt>
                   <dd>{detailTransaction.chip || 'None'}</dd>
                 </div>
