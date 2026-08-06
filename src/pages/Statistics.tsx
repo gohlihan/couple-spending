@@ -2,6 +2,8 @@ import type { Transaction } from '../lib/db';
 import { formatCurrency } from '../lib/currency';
 import { shortId, type MemberNames } from '../lib/members';
 import { calculateStatistics } from '../lib/statistics';
+import { Badge } from '../components/ui/badge';
+import { Progress } from '../components/ui/progress';
 
 const DATE_LABEL = new Intl.DateTimeFormat('en-MY', { day: 'numeric', month: 'short' });
 const TIME_LABEL = new Intl.DateTimeFormat('en-MY', {
@@ -64,7 +66,7 @@ export default function Statistics({
       <section className="statistics-panel" aria-labelledby="category-title">
         <div className="section-title-row">
           <h2 id="category-title">By category</h2>
-          <span>{statistics.categories.length}</span>
+          <Badge variant="outline">{statistics.categories.length}</Badge>
         </div>
         {statistics.categories.length === 0 ? (
           <p className="plan-empty">Add spending to see category patterns.</p>
@@ -76,9 +78,12 @@ export default function Statistics({
                   <span>{category.category}</span>
                   <strong>{formatCurrency(category.amount)}</strong>
                 </div>
-                <div className="category-track" aria-hidden="true">
-                  <span style={{ width: `${(category.amount / categoryMax) * 100}%` }} />
-                </div>
+                <Progress
+                  className="category-progress"
+                  value={category.amount}
+                  max={categoryMax}
+                  aria-label={`${category.category} spending share`}
+                />
                 <small>
                   {category.count} transaction{category.count === 1 ? '' : 's'}
                 </small>
@@ -91,7 +96,7 @@ export default function Statistics({
       <section className="statistics-panel" aria-labelledby="largest-title">
         <div className="section-title-row">
           <h2 id="largest-title">Top 5 purchases</h2>
-          <span>{statistics.largestPurchases.length}</span>
+          <Badge variant="outline">{statistics.largestPurchases.length}</Badge>
         </div>
         {statistics.largestPurchases.length === 0 ? (
           <p className="plan-empty">Your biggest purchases will appear here.</p>

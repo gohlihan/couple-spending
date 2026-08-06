@@ -383,6 +383,11 @@ input:focus-visible {
   font-weight: 800;
 }
 
+.date-bar-period svg {
+  width: 15px;
+  height: 15px;
+}
+
 .date-bar-range {
   min-width: 0;
   flex: 1;
@@ -416,6 +421,41 @@ input:focus-visible {
 .date-bar-arrow:hover,
 .date-bar-arrow:focus-visible {
   background: var(--field);
+}
+
+.date-bar-arrow svg {
+  width: 18px;
+  height: 18px;
+}
+
+.month-picker {
+  padding: 12px;
+}
+
+.month-picker-header {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.month-picker-header strong {
+  font-size: 0.9rem;
+}
+
+.month-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.month-picker-option {
+  min-width: 0;
+  padding-right: 4px;
+  padding-left: 4px;
+  font-size: 0.74rem;
 }
 
 .app-main {
@@ -488,6 +528,10 @@ input:focus-visible {
   color: var(--positive);
 }
 
+.analytics-card-danger .analytics-card-value {
+  color: var(--danger);
+}
+
 .microchart {
   margin-top: auto;
   padding-top: 16px;
@@ -516,6 +560,14 @@ input:focus-visible {
 
 .analytics-card-positive .microchart-point {
   fill: var(--positive);
+}
+
+.analytics-card-danger .microchart-stem {
+  stroke: #f1cdd0;
+}
+
+.analytics-card-danger .microchart-point {
+  fill: var(--danger);
 }
 
 .microchart-labels {
@@ -921,6 +973,16 @@ input:focus-visible {
   display: block;
   height: 100%;
   border-radius: inherit;
+  background: var(--accent);
+}
+
+.category-progress {
+  height: 5px;
+  margin-top: 8px;
+  background: var(--field);
+}
+
+.category-progress > div {
   background: var(--accent);
 }
 
@@ -1347,6 +1409,11 @@ input:focus-visible {
   gap: 8px;
 }
 
+.invite-code-row > button,
+.invite-link-row > button {
+  flex: 0 0 auto;
+}
+
 .invite-code {
   min-width: 0;
   flex: 1;
@@ -1477,5 +1544,26 @@ input:focus-visible {
     border-right: 1px solid var(--line);
     border-left: 1px solid var(--line);
     border-radius: 20px 20px 0 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .statistics-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-card {
+    min-width: min(82vw, 272px);
+  }
+}
+
+@media (max-width: 420px) {
+  .invite-link-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .invite-link-row > button {
+    width: 100%;
   }
 }

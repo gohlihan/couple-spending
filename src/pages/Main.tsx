@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { Transaction } from '../lib/db';
 import { formatCurrency } from '../lib/currency';
 import { softDeleteTransaction } from '../lib/transactions';
@@ -21,6 +21,32 @@ import {
   useHouseholdPresence,
   useRecentHouseholdActivity,
 } from '../lib/household-activity';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
+import { Button } from '../components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
+import { FieldError } from '../components/ui/field';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '../components/ui/sheet';
 
 type View = 'insights' | 'plan' | 'statistics';
 type NavItem = View | 'add' | 'more';
@@ -117,25 +143,8 @@ export default function Main({ onSignOut }: MainProps) {
   const recentActivity = useRecentHouseholdActivity(householdId);
   const sync = useSync(householdId);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setMenuOpen(false);
-        setActiveTab(view);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [menuOpen, view]);
-
   function activeView(): void {
     setActiveTab(view);
-  }
-
-  function closeMenu() {
-    setMenuOpen(false);
-    activeView();
   }
 
   function openView(nextView: View) {
@@ -164,6 +173,30 @@ export default function Main({ onSignOut }: MainProps) {
     setShowInvite(showInviteCode);
     setMenuOpen(true);
     setActiveTab('more');
+  }
+
+  function closeMenuFromSheet(open: boolean) {
+    setMenuOpen(open);
+    if (!open) {
+      setShowInvite(false);
+      setShowLinkPartner(false);
+      activeView();
+    }
+  }
+
+  function closeBudgetSheet(open: boolean) {
+    setShowBudget(open);
+    if (!open) activeView();
+  }
+
+  function closePasswordSheet(open: boolean) {
+    setShowPassword(open);
+    if (!open) activeView();
+  }
+
+  function closeAddSheet(open: boolean) {
+    setShowAdd(open);
+    if (!open) activeView();
   }
 
   async function confirmDeleteTransaction() {
@@ -212,61 +245,41 @@ export default function Main({ onSignOut }: MainProps) {
         )}
       </main>
 
-      {menuOpen && (
-        <div
-          className="app-menu-backdrop"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) closeMenu();
-          }}
-        >
-          <aside
-            id="app-menu"
-            className="app-menu"
-            role="dialog"
-            aria-modal="true"
-            aria-label="More options"
-          >
-            <div className="app-menu-header">
-              <div>
-                <p className="section-eyebrow">Couple Spending</p>
-                <h2>More</h2>
-              </div>
-              <button
-                type="button"
-                className="menu-close-button"
-                aria-label="Close menu"
-                onClick={closeMenu}
+      <Sheet open={menuOpen} onOpenChange={closeMenuFromSheet}>
+        <SheetContent side="right" className="app-menu" aria-describedby="more-description">
+          <SheetHeader className="app-menu-header">
+            <p className="section-eyebrow">Couple Spending</p>
+            <SheetTitle>More</SheetTitle>
+            <SheetDescription id="more-description" className="sr-only">
+              Household status, sharing, account, and synchronization settings.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="app-menu-content">
+            <div className="menu-sync-row">
+              <span className="menu-sync-label">Sync status</span>
+              <span
+                className={`sync-status sync-status-${sync.status.replace(' ', '-')}`}
+                role="status"
+                aria-live="polite"
               >
-                ×
-              </button>
+                {sync.status}
+              </span>
             </div>
+            {(sync.pendingCount > 0 || sync.failedCount > 0) && (
+              <p className="menu-sync-detail">
+                {sync.pendingCount > 0 && `${sync.pendingCount} pending`}
+                {sync.pendingCount > 0 && sync.failedCount > 0 && ' · '}
+                {sync.failedCount > 0 && `${sync.failedCount} failed`}
+              </p>
+            )}
 
-            <div className="app-menu-content">
-              <div className="menu-sync-row">
-                <span className="menu-sync-label">Sync status</span>
-                <span
-                  className={`sync-status sync-status-${sync.status.replace(' ', '-')}`}
-                  role="status"
-                  aria-live="polite"
-                >
-                  {sync.status}
-                </span>
-              </div>
-              {(sync.pendingCount > 0 || sync.failedCount > 0) && (
-                <p className="menu-sync-detail">
-                  {sync.pendingCount > 0 && `${sync.pendingCount} pending`}
-                  {sync.pendingCount > 0 && sync.failedCount > 0 && ' · '}
-                  {sync.failedCount > 0 && `${sync.failedCount} failed`}
-                </p>
-              )}
-
-              <section className="menu-panel" aria-labelledby="household-status-title">
-                <p className="section-eyebrow">Household</p>
-                <h3 id="household-status-title">Who's online</h3>
-                <ul className="presence-list">
-                  {Array.from(
-                    new Set([...Object.keys(memberNames), ...(user ? [user.id] : [])]),
-                  ).map((memberId) => {
+            <section className="menu-panel" aria-labelledby="household-status-title">
+              <p className="section-eyebrow">Household</p>
+              <h3 id="household-status-title">Who's online</h3>
+              <ul className="presence-list">
+                {Array.from(new Set([...Object.keys(memberNames), ...(user ? [user.id] : [])])).map(
+                  (memberId) => {
                     const isCurrentUser = memberId === user?.id;
                     const online = isCurrentUser || presence.onlineUserIds.has(memberId);
                     return (
@@ -279,79 +292,79 @@ export default function Main({ onSignOut }: MainProps) {
                         <small>{online ? 'Online' : 'Offline'}</small>
                       </li>
                     );
-                  })}
-                </ul>
-                {!presence.connected && (
-                  <p className="menu-panel-note">Presence reconnects when online.</p>
+                  },
                 )}
-              </section>
-
-              <section className="menu-panel" aria-labelledby="recent-activity-title">
-                <div className="menu-panel-heading">
-                  <div>
-                    <p className="section-eyebrow">Shared history</p>
-                    <h3 id="recent-activity-title">Recent activity</h3>
-                  </div>
-                </div>
-                {recentActivity.length === 0 ? (
-                  <p className="menu-panel-note">Recent synced changes will appear here.</p>
-                ) : (
-                  <ol className="recent-activity-list">
-                    {recentActivity.map((activity) => (
-                      <li key={activity.id}>
-                        <p>
-                          {activity.changed_by
-                            ? (memberNames[activity.changed_by] ?? shortId(activity.changed_by))
-                            : 'System'}{' '}
-                          {activityTitle(activity)}
-                        </p>
-                        <span>{ACTIVITY_TIME_LABEL.format(new Date(activity.changed_at))}</span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </section>
-
-              <button type="button" className="menu-item" onClick={openBudget}>
-                Budget settings
-              </button>
-              {inviteCode && (
-                <>
-                  <button
-                    type="button"
-                    className="menu-item"
-                    onClick={() => setShowInvite((visible) => !visible)}
-                  >
-                    {showInvite ? 'Hide invite code' : 'Invite partner'}
-                  </button>
-                  {showInvite && <Invite />}
-                </>
+              </ul>
+              {!presence.connected && (
+                <p className="menu-panel-note">Presence reconnects when online.</p>
               )}
-              <button
-                type="button"
-                className="menu-item"
-                onClick={() => setShowLinkPartner((visible) => !visible)}
-              >
-                {showLinkPartner ? 'Hide link form' : 'Link with partner'}
-              </button>
-              {showLinkPartner && <LinkPartner />}
-              <button type="button" className="menu-item" onClick={openPassword}>
-                Change password
-              </button>
-              <button
-                type="button"
-                className="menu-item menu-item-danger"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onSignOut();
-                }}
-              >
-                Sign out
-              </button>
-            </div>
-          </aside>
-        </div>
-      )}
+            </section>
+
+            <section className="menu-panel" aria-labelledby="recent-activity-title">
+              <div className="menu-panel-heading">
+                <div>
+                  <p className="section-eyebrow">Shared history</p>
+                  <h3 id="recent-activity-title">Recent activity</h3>
+                </div>
+              </div>
+              {recentActivity.length === 0 ? (
+                <p className="menu-panel-note">Recent synced changes will appear here.</p>
+              ) : (
+                <ol className="recent-activity-list">
+                  {recentActivity.map((activity) => (
+                    <li key={activity.id}>
+                      <p>
+                        {activity.changed_by
+                          ? (memberNames[activity.changed_by] ?? shortId(activity.changed_by))
+                          : 'System'}{' '}
+                        {activityTitle(activity)}
+                      </p>
+                      <span>{ACTIVITY_TIME_LABEL.format(new Date(activity.changed_at))}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+
+            <Button variant="ghost" className="menu-item" onClick={openBudget}>
+              Budget settings
+            </Button>
+            {inviteCode && (
+              <>
+                <Button
+                  variant="ghost"
+                  className="menu-item"
+                  onClick={() => setShowInvite((visible) => !visible)}
+                >
+                  {showInvite ? 'Hide invite code' : 'Invite partner'}
+                </Button>
+                {showInvite && <Invite />}
+              </>
+            )}
+            <Button
+              variant="ghost"
+              className="menu-item"
+              onClick={() => setShowLinkPartner((visible) => !visible)}
+            >
+              {showLinkPartner ? 'Hide link form' : 'Link with partner'}
+            </Button>
+            {showLinkPartner && <LinkPartner />}
+            <Button variant="ghost" className="menu-item" onClick={openPassword}>
+              Change password
+            </Button>
+            <Button
+              variant="ghost"
+              className="menu-item menu-item-danger"
+              onClick={() => {
+                setMenuOpen(false);
+                onSignOut();
+              }}
+            >
+              Sign out
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <nav className="bottom-nav" aria-label="Primary navigation">
         <button
@@ -401,119 +414,58 @@ export default function Main({ onSignOut }: MainProps) {
         </button>
       </nav>
 
-      {showBudget && (
-        <div
-          className="sheet-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Budget settings"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setShowBudget(false);
-              activeView();
-            }
-          }}
-        >
-          <div className="sheet">
-            <div className="sheet-handle-row">
-              <button
-                type="button"
-                className="sheet-close-button"
-                onClick={() => {
-                  setShowBudget(false);
-                  activeView();
-                }}
-                aria-label="Close budget settings"
-              >
-                Close
-              </button>
-            </div>
-            <BudgetSettings budget={budget} />
-          </div>
-        </div>
-      )}
+      <Sheet open={showBudget} onOpenChange={closeBudgetSheet}>
+        <SheetContent side="bottom" className="sheet" aria-describedby="budget-sheet-description">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Budget settings</SheetTitle>
+            <SheetDescription id="budget-sheet-description">
+              Update the shared monthly budget.
+            </SheetDescription>
+          </SheetHeader>
+          <BudgetSettings budget={budget} />
+        </SheetContent>
+      </Sheet>
 
-      {showPassword && (
-        <div
-          className="sheet-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Change password"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setShowPassword(false);
-          }}
-        >
-          <div className="sheet">
-            <div className="sheet-handle-row">
-              <button
-                type="button"
-                className="sheet-close-button"
-                onClick={() => setShowPassword(false)}
-                aria-label="Close change password"
-              >
-                Close
-              </button>
-            </div>
-            <ChangePassword />
-          </div>
-        </div>
-      )}
+      <Sheet open={showPassword} onOpenChange={closePasswordSheet}>
+        <SheetContent side="bottom" className="sheet" aria-describedby="password-sheet-description">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Change password</SheetTitle>
+            <SheetDescription id="password-sheet-description">
+              Change the password for your Couple Spending account.
+            </SheetDescription>
+          </SheetHeader>
+          <ChangePassword />
+        </SheetContent>
+      </Sheet>
 
-      {showAdd && (
-        <div
-          className="sheet-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Add transaction"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setShowAdd(false);
-              activeView();
-            }
-          }}
-        >
-          <div className="sheet">
-            <div className="sheet-handle-row">
-              <button
-                type="button"
-                className="sheet-close-button"
-                onClick={() => {
-                  setShowAdd(false);
-                  activeView();
-                }}
-                aria-label="Close add transaction"
-              >
-                Close
-              </button>
-            </div>
-            <AddTransaction />
-          </div>
-        </div>
-      )}
+      <Sheet open={showAdd} onOpenChange={closeAddSheet}>
+        <SheetContent side="bottom" className="sheet" aria-describedby="add-sheet-description">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Add transaction</SheetTitle>
+            <SheetDescription id="add-sheet-description">
+              Record a new shared spending transaction.
+            </SheetDescription>
+          </SheetHeader>
+          <AddTransaction />
+        </SheetContent>
+      </Sheet>
 
-      {detailTransaction && (
-        <div
-          className="sheet-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Transaction details"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setDetailTransaction(null);
-          }}
-        >
-          <div className="sheet transaction-detail-sheet">
-            <div className="sheet-handle-row">
-              <button
-                type="button"
-                className="sheet-close-button"
-                onClick={() => setDetailTransaction(null)}
-              >
-                Close
-              </button>
-            </div>
-            <section className="transaction-detail" aria-labelledby="transaction-detail-title">
-              <p className="section-eyebrow">Transaction</p>
-              <h2 id="transaction-detail-title">{formatCurrency(detailTransaction.amount)}</h2>
+      <Dialog
+        open={Boolean(detailTransaction)}
+        onOpenChange={(open) => {
+          if (!open) setDetailTransaction(null);
+        }}
+      >
+        {detailTransaction && (
+          <DialogContent className="transaction-detail-dialog">
+            <section className="transaction-detail">
+              <DialogHeader>
+                <p className="section-eyebrow">Transaction</p>
+                <DialogTitle>{formatCurrency(detailTransaction.amount)}</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Details and actions for this transaction.
+                </DialogDescription>
+              </DialogHeader>
               <dl>
                 <div>
                   <dt>Note</dt>
@@ -543,95 +495,88 @@ export default function Main({ onSignOut }: MainProps) {
                 </div>
               </dl>
               <div className="transaction-detail-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setEditTransaction(detailTransaction);
                     setDetailTransaction(null);
                   }}
                 >
                   Edit transaction
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="outline"
                   className="detail-delete-button"
                   onClick={() => {
+                    setTransactionActionError(null);
                     setDeleteTransaction(detailTransaction);
                     setDetailTransaction(null);
                   }}
                 >
                   Delete transaction
-                </button>
+                </Button>
               </div>
             </section>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        )}
+      </Dialog>
 
-      {editTransaction && (
-        <div
-          className="sheet-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Edit transaction"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setEditTransaction(null);
-          }}
-        >
-          <div className="sheet">
-            <div className="sheet-handle-row">
-              <button
-                type="button"
-                className="sheet-close-button"
-                onClick={() => setEditTransaction(null)}
-                aria-label="Close edit transaction"
-              >
-                Close
-              </button>
-            </div>
+      <Sheet
+        open={Boolean(editTransaction)}
+        onOpenChange={(open) => {
+          if (!open) setEditTransaction(null);
+        }}
+      >
+        {editTransaction && (
+          <SheetContent side="bottom" className="sheet" aria-describedby="edit-sheet-description">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Edit transaction</SheetTitle>
+              <SheetDescription id="edit-sheet-description">
+                Update this spending transaction.
+              </SheetDescription>
+            </SheetHeader>
             <AddTransaction
               transaction={editTransaction}
               onSaved={() => setEditTransaction(null)}
             />
-          </div>
-        </div>
-      )}
+          </SheetContent>
+        )}
+      </Sheet>
 
-      {deleteTransaction && (
-        <div
-          className="sheet-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Delete transaction"
-        >
-          <div className="sheet delete-confirmation">
-            <h2>Delete transaction?</h2>
-            <p>This removes it from your timeline and keeps an audit record after sync.</p>
+      <AlertDialog
+        open={Boolean(deleteTransaction)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTransaction(null);
+            setTransactionActionError(null);
+          }
+        }}
+      >
+        {deleteTransaction && (
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete transaction?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This removes it from your timeline and keeps an audit record after sync.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
             {transactionActionError && (
-              <p className="form-message form-error" role="alert">
-                {transactionActionError}
-              </p>
+              <FieldError className="form-message">{transactionActionError}</FieldError>
             )}
-            <div className="delete-confirmation-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setDeleteTransaction(null)}
-              >
-                Keep it
-              </button>
-              <button
-                type="button"
-                className="detail-delete-button"
-                onClick={() => void confirmDeleteTransaction()}
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep it</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault();
+                  void confirmDeleteTransaction();
+                }}
               >
                 Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        )}
+      </AlertDialog>
     </div>
   );
 }

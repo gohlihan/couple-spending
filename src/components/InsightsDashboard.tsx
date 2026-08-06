@@ -1,6 +1,7 @@
 import type { Budget, Transaction } from '../lib/db';
 import { formatCurrency } from '../lib/currency';
 import type { MemberNames } from '../lib/members';
+import { Badge } from './ui/badge';
 import ActivityTransactionList from './ActivityTransactionList';
 
 const DAY_LABEL = new Intl.DateTimeFormat('en-MY', { weekday: 'narrow' });
@@ -23,7 +24,7 @@ interface AnalyticsCardProps {
   value: string;
   detail: string;
   points: ChartPoint[];
-  tone?: 'default' | 'positive';
+  tone?: 'default' | 'positive' | 'danger';
 }
 
 function localDayKey(date: Date): string {
@@ -58,10 +59,44 @@ function buildDailyPoints(transactions: Transaction[], month: Date): ChartPoint[
   }));
 }
 
+function buildRemainingPoints(
+  transactions: Transaction[],
+  budget: number,
+  month: Date,
+): ChartPoint[] {
+  const days = lastSevenDays(month);
+  const firstDay = days[0];
+  const firstDayTimestamp = new Date(
+    firstDay.getFullYear(),
+    firstDay.getMonth(),
+    firstDay.getDate(),
+  ).getTime();
+  let spentBeforeWindow = transactions.reduce((sum, transaction) => {
+    const transactionDate = new Date(transaction.spent_at);
+    const transactionDayTimestamp = new Date(
+      transactionDate.getFullYear(),
+      transactionDate.getMonth(),
+      transactionDate.getDate(),
+    ).getTime();
+    return sum + (transactionDayTimestamp < firstDayTimestamp ? transaction.amount : 0);
+  }, 0);
+
+  return days.map((day) => {
+    const dayKey = localDayKey(day);
+    spentBeforeWindow += transactions.reduce((sum, transaction) => {
+      const transactionDate = new Date(transaction.spent_at);
+      return sum + (localDayKey(transactionDate) === dayKey ? transaction.amount : 0);
+    }, 0);
+    return { label: DAY_LABEL.format(day), value: budget - spentBeforeWindow };
+  });
+}
+
 function MicroChart({ points, label }: { points: ChartPoint[]; label: string }) {
   const chartHeight = 46;
   const chartBottom = 42;
+  const minValue = Math.min(...points.map((point) => point.value), 0);
   const maxValue = Math.max(...points.map((point) => point.value), 1);
+  const valueRange = Math.max(maxValue - minValue, 1);
   const step = 100 / Math.max(points.length - 1, 1);
 
   return (
@@ -69,7 +104,7 @@ function MicroChart({ points, label }: { points: ChartPoint[]; label: string }) 
       <svg viewBox="0 0 100 52" preserveAspectRatio="none" aria-hidden="true">
         {points.map((point, index) => {
           const x = index * step;
-          const y = chartBottom - (point.value / maxValue) * chartHeight;
+          const y = chartBottom - ((point.value - minValue) / valueRange) * chartHeight;
           return (
             <g key={`${point.label}-${index}`}>
               <line className="microchart-stem" x1={x} x2={x} y1={chartBottom} y2={y} />
@@ -114,7 +149,10 @@ export default function InsightsDashboard({
   ).size;
   const dailyAverage = activeDays > 0 ? totalSpent / activeDays : 0;
   const points = buildDailyPoints(transactions, month);
+  const remainingPoints =
+    budgetAmount === null ? points : buildRemainingPoints(transactions, budgetAmount, month);
   const weeklySpent = points.reduce((sum, point) => sum + point.value, 0);
+  const remainingTone = remaining !== null && remaining < 0 ? 'danger' : 'positive';
 
   return (
     <>
@@ -130,11 +168,11 @@ export default function InsightsDashboard({
           value={remaining === null ? 'Set a budget' : formatCurrency(remaining)}
           detail={
             budgetAmount === null
-              ? 'Open Statistics after adding a budget'
+              ? 'Open More to set a budget'
               : `of ${formatCurrency(budgetAmount)} monthly`
           }
-          points={points}
-          tone="positive"
+          points={remainingPoints}
+          tone={remaining === null ? 'default' : remainingTone}
         />
         <AnalyticsCard
           label="Daily average"
@@ -164,7 +202,9 @@ export default function InsightsDashboard({
             <p className="section-eyebrow">Activity</p>
             <h2 id="recent-title">Recent transactions</h2>
           </div>
-          <span className="recent-count">{transactions.length}</span>
+          <Badge variant="outline" className="recent-count">
+            {transactions.length}
+          </Badge>
         </header>
         <ActivityTransactionList
           transactions={transactions}

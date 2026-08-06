@@ -1,8 +1,14 @@
+import { useState } from 'react';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
+
 const RANGE_LABEL = new Intl.DateTimeFormat('en-MY', {
   day: 'numeric',
   month: 'short',
   year: 'numeric',
 });
+const MONTH_LABEL = new Intl.DateTimeFormat('en-MY', { month: 'short' });
 
 interface DateBarProps {
   /** A date within the currently selected month. */
@@ -20,33 +26,99 @@ function monthRange(month: Date): string {
   return `${RANGE_LABEL.format(first)} – ${RANGE_LABEL.format(last)}`;
 }
 
+function monthName(year: number, month: number): string {
+  return MONTH_LABEL.format(new Date(year, month, 1));
+}
+
 /** Compact monthly period and date-range control for the Insights screen. */
 export default function DateBar({ month, onChange }: DateBarProps) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(month.getFullYear());
+
+  function openPicker(open: boolean) {
+    setPickerOpen(open);
+    if (open) setPickerYear(month.getFullYear());
+  }
+
   return (
     <nav className="date-bar" aria-label="Selected period">
-      <span className="date-bar-period" aria-label="Period: monthly">
-        Monthly
-      </span>
+      <Popover open={pickerOpen} onOpenChange={openPicker}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="date-bar-period"
+            aria-label={`Choose month, currently ${monthName(month.getFullYear(), month.getMonth())} ${month.getFullYear()}`}
+          >
+            <CalendarDays aria-hidden="true" />
+            Monthly
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="month-picker">
+          <div className="month-picker-header">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Previous year"
+              onClick={() => setPickerYear((year) => year - 1)}
+            >
+              <ChevronLeft aria-hidden="true" />
+            </Button>
+            <strong>{pickerYear}</strong>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Next year"
+              onClick={() => setPickerYear((year) => year + 1)}
+            >
+              <ChevronRight aria-hidden="true" />
+            </Button>
+          </div>
+          <div className="month-picker-grid">
+            {Array.from({ length: 12 }, (_, monthIndex) => {
+              const selected =
+                month.getFullYear() === pickerYear && month.getMonth() === monthIndex;
+              return (
+                <Button
+                  key={monthIndex}
+                  variant={selected ? 'default' : 'ghost'}
+                  size="sm"
+                  className="month-picker-option"
+                  aria-pressed={selected}
+                  onClick={() => {
+                    onChange(new Date(pickerYear, monthIndex, 1, 0, 0, 0, 0));
+                    setPickerOpen(false);
+                  }}
+                >
+                  {monthName(pickerYear, monthIndex)}
+                </Button>
+              );
+            })}
+          </div>
+        </PopoverContent>
+      </Popover>
       <span className="date-bar-range" aria-live="polite">
         {monthRange(month)}
       </span>
       <div className="date-bar-controls">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           className="date-bar-arrow"
           onClick={() => onChange(addMonths(month, -1))}
           aria-label="Previous month"
         >
-          <span aria-hidden="true">‹</span>
-        </button>
-        <button
-          type="button"
+          <ChevronLeft aria-hidden="true" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           className="date-bar-arrow"
           onClick={() => onChange(addMonths(month, 1))}
           aria-label="Next month"
         >
-          <span aria-hidden="true">›</span>
-        </button>
+          <ChevronRight aria-hidden="true" />
+        </Button>
       </div>
     </nav>
   );

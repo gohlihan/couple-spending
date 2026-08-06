@@ -11,9 +11,26 @@ import {
   usePlannedItems,
 } from '../lib/planned-items';
 import { useAuth } from '../lib/use-auth';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 import { Button } from '../components/ui/button';
 import { Field, FieldError, FieldLabel } from '../components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '../components/ui/sheet';
 
 const DATE_LABEL = new Intl.DateTimeFormat('en-MY', {
   day: 'numeric',
@@ -54,9 +71,15 @@ function PlanItemForm({ item, onDone }: { item: PlannedItem | null; onDone: () =
     <section className="plan-form-card" aria-labelledby="plan-form-title">
       <div className="plan-form-heading">
         <h2 id="plan-form-title">{item ? 'Edit item' : 'Add to plan'}</h2>
-        <button type="button" className="sheet-close-button" onClick={onDone}>
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="sheet-close-button"
+          onClick={onDone}
+        >
           Cancel
-        </button>
+        </Button>
       </div>
       <form className="transaction-form" onSubmit={submit}>
         <Field>
@@ -103,9 +126,7 @@ function PlanItemForm({ item, onDone }: { item: PlannedItem | null; onDone: () =
             disabled={submitting}
           />
         </Field>
-        {error && (
-          <FieldError className="form-message">{error}</FieldError>
-        )}
+        {error && <FieldError className="form-message">{error}</FieldError>}
         <Button className="w-full" type="submit" disabled={submitting}>
           {submitting ? 'Saving…' : item ? 'Save changes' : 'Add item'}
         </Button>
@@ -123,6 +144,8 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
   const [completionItem, setCompletionItem] = useState<PlannedItem | null>(null);
   const [completionPayerId, setCompletionPayerId] = useState('');
   const [completionError, setCompletionError] = useState<string | null>(null);
+  const [removeItem, setRemoveItem] = useState<PlannedItem | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const activeItems = items.filter((item) => !item.completed_at);
   const historyItems = items.filter((item) => item.completed_at);
@@ -155,14 +178,16 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
     }
   }
 
-  async function remove(item: PlannedItem) {
-    if (!window.confirm(`Remove “${item.title}” from your plan?`)) return;
-    setBusyItemId(item.id);
+  async function confirmRemove() {
+    if (!removeItem) return;
+    setBusyItemId(removeItem.id);
+    setRemoveError(null);
     setMessage(null);
     try {
-      await removePlannedItem(item, { user, householdId });
+      await removePlannedItem(removeItem, { user, householdId });
+      setRemoveItem(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Could not remove this item.');
+      setRemoveError(error instanceof Error ? error.message : 'Could not remove this item.');
     } finally {
       setBusyItemId(null);
     }
@@ -176,14 +201,35 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
           <h1 id="plan-title">Plan</h1>
           <p>Set aside what you need before it becomes spending.</p>
         </div>
-        <button type="button" className="view-add-button" onClick={() => setFormItem(null)}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="view-add-button"
+          onClick={() => setFormItem(null)}
+        >
           Add item
-        </button>
+        </Button>
       </header>
 
-      {formItem !== undefined && (
-        <PlanItemForm item={formItem} onDone={() => setFormItem(undefined)} />
-      )}
+      <Sheet
+        open={formItem !== undefined}
+        onOpenChange={(open) => {
+          if (!open) setFormItem(undefined);
+        }}
+      >
+        {formItem !== undefined && (
+          <SheetContent side="bottom" className="sheet" aria-describedby="plan-form-description">
+            <SheetHeader className="sr-only">
+              <SheetTitle>{formItem ? 'Edit planned item' : 'Add planned item'}</SheetTitle>
+              <SheetDescription id="plan-form-description">
+                Add or update an item in your shared spending plan.
+              </SheetDescription>
+            </SheetHeader>
+            <PlanItemForm item={formItem} onDone={() => setFormItem(undefined)} />
+          </SheetContent>
+        )}
+      </Sheet>
       {message && (
         <p className="plan-message" role="status">
           {message}
@@ -226,7 +272,10 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void remove(item)}
+                    onClick={() => {
+                      setRemoveError(null);
+                      setRemoveItem(item);
+                    }}
                     disabled={busyItemId === item.id}
                   >
                     Remove
@@ -238,27 +287,24 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
         )}
       </section>
 
-      {completionItem && (
-        <div
-          className="sheet-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="complete-plan-title"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) cancelCompletion();
-          }}
-        >
-          <div className="sheet">
-            <div className="sheet-handle-row">
-              <button
-                type="button"
-                className="sheet-close-button"
-                onClick={cancelCompletion}
-                disabled={Boolean(busyItemId)}
-              >
-                Cancel
-              </button>
-            </div>
+      <Sheet
+        open={Boolean(completionItem)}
+        onOpenChange={(open) => {
+          if (!open) cancelCompletion();
+        }}
+      >
+        {completionItem && (
+          <SheetContent
+            side="bottom"
+            className="sheet"
+            aria-describedby="complete-plan-description"
+          >
+            <SheetHeader className="sr-only">
+              <SheetTitle>Move planned item to spending</SheetTitle>
+              <SheetDescription id="complete-plan-description">
+                Choose who paid before adding this planned item to spending.
+              </SheetDescription>
+            </SheetHeader>
             <section className="plan-form-card" aria-labelledby="complete-plan-title">
               <p className="section-eyebrow">Move to spending</p>
               <h2 id="complete-plan-title">{completionItem.title}</h2>
@@ -283,18 +329,16 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
                   onChange={setCompletionPayerId}
                 />
                 {completionError && (
-                  <p className="form-message form-error" role="alert">
-                    {completionError}
-                  </p>
+                  <FieldError className="form-message">{completionError}</FieldError>
                 )}
-                <button type="submit" className="btn-primary" disabled={Boolean(busyItemId)}>
+                <Button className="w-full" type="submit" disabled={Boolean(busyItemId)}>
                   {busyItemId ? 'Saving…' : 'Mark as purchased'}
-                </button>
+                </Button>
               </form>
             </section>
-          </div>
-        </div>
-      )}
+          </SheetContent>
+        )}
+      </Sheet>
 
       <section className="plan-list-section plan-history" aria-labelledby="plan-history-title">
         <div className="section-title-row">
@@ -323,6 +367,39 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
           </ol>
         )}
       </section>
+
+      <AlertDialog
+        open={Boolean(removeItem)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoveItem(null);
+            setRemoveError(null);
+          }
+        }}
+      >
+        {removeItem && (
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove from plan?</AlertDialogTitle>
+              <AlertDialogDescription>
+                “{removeItem.title}” will be removed from your shared shopping plan.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {removeError && <FieldError>{removeError}</FieldError>}
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep item</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(event) => {
+                  event.preventDefault();
+                  void confirmRemove();
+                }}
+              >
+                Remove item
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        )}
+      </AlertDialog>
     </section>
   );
 }

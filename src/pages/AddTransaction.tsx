@@ -155,15 +155,16 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
           <legend className="field-label">Quick tag</legend>
           <div className="chip-row">
             {chips.map((option) => (
-              <button
+              <Button
                 key={option}
-                type="button"
+                variant="ghost"
+                size="sm"
                 className={`chip-button${chip === option ? ' chip-button-selected' : ''}`}
                 onClick={() => setChip(chip === option ? '' : option)}
                 aria-pressed={chip === option}
               >
                 {option}
-              </button>
+              </Button>
             ))}
           </div>
         </fieldset>
