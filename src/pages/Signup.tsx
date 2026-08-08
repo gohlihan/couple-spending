@@ -10,6 +10,7 @@ import {
   rememberPendingInviteCode,
 } from '../lib/household';
 import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
 import { Field, FieldLabel } from '../components/ui/field';
 import { Input } from '../components/ui/input';
 
@@ -91,11 +92,17 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
   }
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      <h1 className="auth-title">Couple Spending</h1>
-      <p className="auth-subtitle">
-        {joining ? 'Create your account to join the household' : 'Create your account'}
-      </p>
+    <main className="auth-screen">
+      <Card className="auth-card">
+        <div className="auth-brand" aria-hidden="true">
+          <span className="auth-brand-mark">CS</span>
+          <span>Build your shared money space</span>
+        </div>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <h1 className="auth-title">Couple Spending</h1>
+          <p className="auth-subtitle">
+            {joining ? 'Create your account to join the household' : 'Create your account'}
+          </p>
 
       <Field>
         <FieldLabel htmlFor="signup-email">Email</FieldLabel>
@@ -174,6 +181,8 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
       >
         Already have an account? Log in
       </Button>
-    </form>
+        </form>
+      </Card>
+    </main>
   );
 }

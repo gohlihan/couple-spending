@@ -1,5 +1,6 @@
 import { shortId, type HouseholdMemberOption } from '../lib/members';
 import { Field, FieldLabel } from './ui/field';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface PayerSelectProps {
   id: string;
@@ -48,24 +49,19 @@ export default function PayerSelect({
   return (
     <Field>
       <FieldLabel htmlFor={id}>Paid by</FieldLabel>
-      <select
-        id={id}
-        className="ui-native-input"
-        required
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        disabled={disabled}
-      >
-        <option value="" disabled>
-          Select who paid
-        </option>
-        {options.map((member) => (
-          <option key={member.userId} value={member.userId}>
-            {labelFor(member, currentUserId, currentUserName)}
-            {member.userId === currentUserId ? ' (you)' : ''}
-          </option>
-        ))}
-      </select>
+      <Select value={value} onValueChange={onChange} disabled={disabled} required>
+        <SelectTrigger id={id}>
+          <SelectValue placeholder="Select who paid" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((member) => (
+            <SelectItem key={member.userId} value={member.userId}>
+              {labelFor(member, currentUserId, currentUserName)}
+              {member.userId === currentUserId ? ' (you)' : ''}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </Field>
   );
 }

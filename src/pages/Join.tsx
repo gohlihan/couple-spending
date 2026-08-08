@@ -8,6 +8,7 @@ import {
   readPendingInviteCode,
 } from '../lib/household';
 import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
 import { Field, FieldLabel } from '../components/ui/field';
 import { Input } from '../components/ui/input';
 
@@ -60,13 +61,19 @@ export default function Join({ initialInviteCode }: JoinProps) {
   }
 
   return (
-    <form className="auth-form" onSubmit={mode === 'join' ? handleJoin : handleCreate}>
-      <h1 className="auth-title">Almost there</h1>
-      <p className="auth-subtitle">
-        {mode === 'join'
-          ? 'Enter your partner’s invite code to share a household'
-          : 'Start a new household for you and your partner'}
-      </p>
+    <main className="auth-screen">
+      <Card className="auth-card">
+        <div className="auth-brand" aria-hidden="true">
+          <span className="auth-brand-mark">CS</span>
+          <span>One shared place for both of you</span>
+        </div>
+        <form className="auth-form" onSubmit={mode === 'join' ? handleJoin : handleCreate}>
+          <h1 className="auth-title">Almost there</h1>
+          <p className="auth-subtitle">
+            {mode === 'join'
+              ? 'Enter your partner’s invite code to share a household'
+              : 'Start a new household for you and your partner'}
+          </p>
 
       {mode === 'join' && (
         <Field>
@@ -133,6 +140,8 @@ export default function Join({ initialInviteCode }: JoinProps) {
           Have an invite code? Join instead
         </Button>
       )}
-    </form>
+        </form>
+      </Card>
+    </main>
   );
 }

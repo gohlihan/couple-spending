@@ -46,7 +46,7 @@ const SheetContent = React.forwardRef<
       ref={ref}
       data-slot="sheet-content"
       className={cn(
-        'fixed z-50 flex flex-col overflow-y-auto bg-card p-5 text-card-foreground shadow-[0_20px_60px_rgba(24,33,47,0.16)] outline-none',
+        'fixed z-50 flex flex-col overflow-y-auto bg-card p-5 text-card-foreground shadow-none outline-none',
         sideClasses[side],
         side === 'bottom' || side === 'top'
           ? 'pb-[calc(20px+var(--safe-bottom))]'

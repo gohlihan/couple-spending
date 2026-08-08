@@ -21,9 +21,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
+import { Checkbox } from '../components/ui/checkbox';
 import { Field, FieldError, FieldLabel } from '../components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group';
+import { Input } from '../components/ui/input';
 import {
   Sheet,
   SheetContent,
@@ -68,7 +73,7 @@ function PlanItemForm({ item, onDone }: { item: PlannedItem | null; onDone: () =
   }
 
   return (
-    <section className="plan-form-card" aria-labelledby="plan-form-title">
+    <Card as="section" className="plan-form-card" aria-labelledby="plan-form-title">
       <div className="plan-form-heading">
         <h2 id="plan-form-title">{item ? 'Edit item' : 'Add to plan'}</h2>
         <Button
@@ -84,8 +89,7 @@ function PlanItemForm({ item, onDone }: { item: PlannedItem | null; onDone: () =
       <form className="transaction-form" onSubmit={submit}>
         <Field>
           <FieldLabel htmlFor="plan-title">What do you need?</FieldLabel>
-          <input
-            className="ui-native-input"
+          <Input
             id="plan-title"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
@@ -117,8 +121,7 @@ function PlanItemForm({ item, onDone }: { item: PlannedItem | null; onDone: () =
           <FieldLabel htmlFor="plan-date">
             Buy by <span className="optional">(optional)</span>
           </FieldLabel>
-          <input
-            className="ui-native-input"
+          <Input
             id="plan-date"
             type="date"
             value={plannedFor}
@@ -131,7 +134,7 @@ function PlanItemForm({ item, onDone }: { item: PlannedItem | null; onDone: () =
           {submitting ? 'Saving…' : item ? 'Save changes' : 'Add item'}
         </Button>
       </form>
-    </section>
+    </Card>
   );
 }
 
@@ -231,15 +234,15 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
         )}
       </Sheet>
       {message && (
-        <p className="plan-message" role="status">
-          {message}
-        </p>
+        <Alert variant="success" className="plan-message" role="status">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
       )}
 
-      <section className="plan-list-section" aria-labelledby="plan-active-title">
+      <Card as="section" className="plan-list-section" aria-labelledby="plan-active-title">
         <div className="section-title-row">
           <h2 id="plan-active-title">To buy</h2>
-          <span>{activeItems.length}</span>
+          <Badge variant="outline">{activeItems.length}</Badge>
         </div>
         {activeItems.length === 0 ? (
           <p className="plan-empty">Nothing planned yet. Add the next thing you need.</p>
@@ -247,13 +250,15 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
           <ol className="plan-item-list">
             {activeItems.map((item) => (
               <li key={item.id} className="plan-item">
-                <input
-                  type="checkbox"
-                  aria-label={`Mark ${item.title} as purchased`}
-                  checked={false}
-                  disabled={busyItemId === item.id}
-                  onChange={() => beginCompletion(item)}
-                />
+                <span className="plan-checkbox-hit">
+                  <Checkbox
+                    className="plan-checkbox"
+                    aria-label={`Mark ${item.title} as purchased`}
+                    checked={false}
+                    disabled={busyItemId === item.id}
+                    onCheckedChange={() => beginCompletion(item)}
+                  />
+                </span>
                 <div className="plan-item-copy">
                   <p>{item.title}</p>
                   <span>
@@ -263,14 +268,20 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
                 </div>
                 <span className="plan-item-amount">{formatCurrency(item.amount)}</span>
                 <div className="plan-item-actions">
-                  <button
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="plan-item-action"
                     type="button"
                     onClick={() => setFormItem(item)}
                     disabled={busyItemId === item.id}
                   >
                     Edit
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="plan-item-action plan-item-action-danger"
                     type="button"
                     onClick={() => {
                       setRemoveError(null);
@@ -279,13 +290,13 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
                     disabled={busyItemId === item.id}
                   >
                     Remove
-                  </button>
+                  </Button>
                 </div>
               </li>
             ))}
           </ol>
         )}
-      </section>
+      </Card>
 
       <Sheet
         open={Boolean(completionItem)}
@@ -305,7 +316,7 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
                 Choose who paid before adding this planned item to spending.
               </SheetDescription>
             </SheetHeader>
-            <section className="plan-form-card" aria-labelledby="complete-plan-title">
+            <Card as="section" className="plan-form-card" aria-labelledby="complete-plan-title">
               <p className="section-eyebrow">Move to spending</p>
               <h2 id="complete-plan-title">{completionItem.title}</h2>
               <p className="muted">
@@ -335,15 +346,15 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
                   {busyItemId ? 'Saving…' : 'Mark as purchased'}
                 </Button>
               </form>
-            </section>
+            </Card>
           </SheetContent>
         )}
       </Sheet>
 
-      <section className="plan-list-section plan-history" aria-labelledby="plan-history-title">
+      <Card as="section" className="plan-list-section plan-history" aria-labelledby="plan-history-title">
         <div className="section-title-row">
           <h2 id="plan-history-title">History</h2>
-          <span>{historyItems.length}</span>
+          <Badge variant="outline">{historyItems.length}</Badge>
         </div>
         {historyItems.length === 0 ? (
           <p className="plan-empty">Checked items move here with their spending record.</p>
@@ -351,7 +362,14 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
           <ol className="plan-item-list">
             {historyItems.map((item) => (
               <li key={item.id} className="plan-item plan-item-completed">
-                <input type="checkbox" checked readOnly aria-label={`${item.title} purchased`} />
+                <span className="plan-checkbox-hit">
+                  <Checkbox
+                    className="plan-checkbox"
+                    checked
+                    disabled
+                    aria-label={`${item.title} purchased`}
+                  />
+                </span>
                 <div className="plan-item-copy">
                   <p>{item.title}</p>
                   <span>
@@ -366,7 +384,7 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
             ))}
           </ol>
         )}
-      </section>
+      </Card>
 
       <AlertDialog
         open={Boolean(removeItem)}

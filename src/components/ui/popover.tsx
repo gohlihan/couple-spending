@@ -17,7 +17,7 @@ const PopoverContent = React.forwardRef<
       sideOffset={sideOffset}
       data-slot="popover-content"
       className={cn(
-        'z-50 w-[min(330px,calc(100vw-2rem))] rounded-[20px] border border-border bg-popover p-4 text-popover-foreground shadow-[0_20px_60px_rgba(24,33,47,0.14)] outline-none',
+        'z-50 w-[min(330px,calc(100vw-2rem))] rounded-[20px] border border-border bg-popover p-4 text-popover-foreground shadow-none outline-none',
         className,
       )}
       {...props}

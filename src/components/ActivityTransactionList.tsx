@@ -2,6 +2,7 @@ import type { Transaction } from '../lib/db';
 import { formatCurrency } from '../lib/currency';
 import { shortId, type MemberNames } from '../lib/members';
 import { groupTransactionsByDay } from '../lib/statistics';
+import { Badge } from './ui/badge';
 
 const DATE_LABEL = new Intl.DateTimeFormat('en-MY', {
   weekday: 'long',
@@ -86,7 +87,12 @@ export default function ActivityTransactionList({
           className="activity-day-group"
           aria-label={DATE_LABEL.format(dateFromKey(group.date))}
         >
-          <p className="activity-date-label">{DATE_LABEL.format(dateFromKey(group.date))}</p>
+          <div className="activity-date-heading">
+            <p className="activity-date-label">{DATE_LABEL.format(dateFromKey(group.date))}</p>
+            <Badge variant="positive" className="activity-date-total">
+              {formatCurrency(group.total)}
+            </Badge>
+          </div>
           <ol className="activity-transaction-list">
             {group.transactions.map((transaction) => (
               <TransactionRow

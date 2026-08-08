@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Transaction } from '../lib/db';
 import PayerSelect from '../components/PayerSelect';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
-import { Field, FieldError, FieldLabel } from '../components/ui/field';
+import { Card } from '../components/ui/card';
+import { Field, FieldLabel } from '../components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group';
+import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
+import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
 import { useHouseholdMemberRoster } from '../lib/members';
 import { addTransaction, updateTransaction } from '../lib/transactions';
 import { useAuth } from '../lib/use-auth';
@@ -103,7 +107,7 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
   }
 
   return (
-    <section className="transaction-card" aria-labelledby="add-transaction-title">
+    <Card as="section" className="transaction-card" aria-labelledby="add-transaction-title">
       <h2 id="add-transaction-title">{editing ? 'Edit spending' : 'Add spending'}</h2>
       <form className="transaction-form" onSubmit={handleSubmit}>
         <Field>
@@ -129,8 +133,7 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
 
         <Field>
           <FieldLabel htmlFor="transaction-spent-at">When</FieldLabel>
-          <input
-            className="ui-native-input"
+          <Input
             id="transaction-spent-at"
             type="datetime-local"
             required
@@ -153,20 +156,23 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
 
         <fieldset className="chip-fieldset" disabled={submitting}>
           <legend className="field-label">Quick tag</legend>
-          <div className="chip-row">
+          <ToggleGroup
+            type="single"
+            value={chip}
+            onValueChange={setChip}
+            className="chip-row"
+            aria-label="Quick tag"
+          >
             {chips.map((option) => (
-              <Button
+              <ToggleGroupItem
                 key={option}
-                variant="ghost"
-                size="sm"
-                className={`chip-button${chip === option ? ' chip-button-selected' : ''}`}
-                onClick={() => setChip(chip === option ? '' : option)}
-                aria-pressed={chip === option}
+                value={option}
+                aria-label={`Tag as ${option}`}
               >
                 {option}
-              </Button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
         </fieldset>
 
         <Field>
@@ -184,17 +190,19 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
         </Field>
 
         {error && (
-          <FieldError className="form-message">{error}</FieldError>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
         {message && (
-          <p className="form-message form-success" role="status">
-            {message}
-          </p>
+          <Alert variant="success" role="status">
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
         )}
         <Button className="w-full" type="submit" disabled={submitting}>
           {submitting ? 'Saving…' : editing ? 'Save changes' : 'Add transaction'}
         </Button>
       </form>
-    </section>
+    </Card>
   );
 }

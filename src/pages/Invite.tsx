@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { inviteSharePath } from '../lib/household';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/use-auth';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { Skeleton } from '../components/ui/skeleton';
 
 /**
  * Shows the household's invite code and a shareable link so the first user can
@@ -14,6 +17,7 @@ export default function Invite() {
   const { householdId, inviteCode, displayName } = useAuth();
   const [code, setCode] = useState<string | null>(inviteCode);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -40,17 +44,39 @@ export default function Invite() {
     : null;
 
   async function copy(text: string) {
+    setCopyError(null);
+    setCopied(false);
     try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable.');
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
     } catch {
-      // clipboard may be unavailable (e.g. non-secure context) — ignore
+      try {
+        const fallback = document.createElement('textarea');
+        fallback.value = text;
+        fallback.setAttribute('readonly', '');
+        fallback.setAttribute('aria-hidden', 'true');
+        fallback.style.position = 'fixed';
+        fallback.style.opacity = '0';
+        try {
+          document.body.appendChild(fallback);
+          fallback.select();
+          fallback.setSelectionRange(0, fallback.value.length);
+          const copiedWithFallback = document.execCommand('copy');
+          if (!copiedWithFallback) throw new Error('Copy command failed.');
+        } finally {
+          fallback.remove();
+        }
+      } catch {
+        setCopyError('Could not copy automatically. Select the code or link and copy it manually.');
+        return;
+      }
     }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
   }
 
   return (
-    <section className="invite-card">
+    <Card as="section" className="invite-card">
       <h2>Invite your partner</h2>
       <p className="muted">
         Share this code or link with {displayName ?? 'your partner'}. Once they join, you’ll share
@@ -78,11 +104,23 @@ export default function Invite() {
             </div>
           )}
 
-          {copied && <p className="copied">Copied!</p>}
+          {copied && (
+            <Alert variant="success" className="copied" role="status">
+              <AlertDescription>Copied to clipboard.</AlertDescription>
+            </Alert>
+          )}
+          {copyError && (
+            <Alert variant="destructive" role="alert">
+              <AlertDescription>{copyError}</AlertDescription>
+            </Alert>
+          )}
         </>
       ) : (
-        <p className="muted">Loading invite code…</p>
+        <div className="invite-loading" role="status" aria-busy="true">
+          <Skeleton className="invite-code-skeleton" />
+          <p className="muted">Loading invite code...</p>
+        </div>
       )}
-    </section>
+    </Card>
   );
 }

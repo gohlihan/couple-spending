@@ -30,7 +30,7 @@ const AlertDialogContent = React.forwardRef<
       ref={ref}
       data-slot="alert-dialog-content"
       className={cn(
-        'fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 gap-5 rounded-[24px] bg-card p-6 text-card-foreground shadow-[0_20px_60px_rgba(24,33,47,0.16)] outline-none',
+        'fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 gap-5 rounded-[24px] bg-card p-6 text-card-foreground shadow-none outline-none',
         className,
       )}
       {...props}

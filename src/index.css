@@ -107,7 +107,9 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible,
+[role='combobox']:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -124,16 +126,76 @@ input:focus-visible {
   color: var(--muted);
 }
 
-/* Authentication --------------------------------------------------------- */
-
-.auth-form {
-  width: min(100%, 390px);
-  min-height: 100svh;
-  margin: auto;
-  padding: calc(var(--safe-top) + 40px) 24px calc(var(--safe-bottom) + 32px);
+.loading-state {
+  width: min(calc(100% - 40px), 260px);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.loading-state p {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.loading-mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  background: var(--accent-soft);
+}
+
+.loading-line {
+  width: 132px;
+  height: 10px;
+}
+
+/* Authentication --------------------------------------------------------- */
+
+.auth-screen {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-top) + 24px) 16px calc(var(--safe-bottom) + 24px);
+}
+
+.auth-card {
+  width: min(100%, 420px);
+  padding: 24px;
+  border: 1px solid var(--line);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.auth-brand-mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: -0.04em;
+}
+
+.auth-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
@@ -171,7 +233,6 @@ input:focus-visible {
 }
 
 .field input,
-.field select,
 .invite-link {
   width: 100%;
   min-height: 48px;
@@ -182,108 +243,10 @@ input:focus-visible {
   color: var(--ink);
 }
 
-.ui-native-input {
-  width: 100%;
-  min-height: 48px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--field);
-  color: var(--ink);
-  outline: none;
-}
-
-.ui-native-input:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.ui-native-input:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
 .field input:disabled {
   opacity: 0.55;
 }
 
-.field select:disabled {
-  opacity: 0.55;
-}
-
-.currency-input {
-  display: flex;
-  align-items: center;
-  min-height: 48px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--field);
-}
-
-.currency-input:focus-within {
-  border-color: var(--accent);
-}
-
-.currency-prefix {
-  padding-left: 14px;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.currency-input input {
-  min-width: 0;
-  flex: 1;
-  min-height: 46px;
-  padding: 12px 14px 12px 8px;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  outline: 0;
-}
-
-.btn-primary,
-.btn-secondary {
-  min-height: 48px;
-  border-radius: var(--radius-control);
-  padding: 12px 16px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
-}
-
-.btn-primary {
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: #fff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  border-color: var(--accent-strong);
-  background: var(--accent-strong);
-}
-
-.btn-secondary {
-  border: 1px solid var(--accent);
-  background: transparent;
-  color: var(--accent);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--accent-soft);
-}
-
-.btn-primary:disabled,
-.btn-secondary:disabled,
-.btn-link:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-
-.btn-link,
 .sheet-close-button {
   border: 0;
   background: transparent;
@@ -294,22 +257,30 @@ input:focus-visible {
 }
 
 .error-banner {
+  position: fixed;
+  top: calc(var(--safe-top) + 12px);
+  right: 16px;
+  left: 16px;
+  z-index: 60;
+  width: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
-  background: var(--danger-soft);
-  color: var(--danger);
-  font-size: 0.88rem;
+  padding: 12px 12px 12px 16px;
 }
 
 .error-banner-close {
+  flex: 0 0 auto;
   border: 0;
   background: transparent;
   color: inherit;
   cursor: pointer;
-  font-size: 1.25rem;
+}
+
+.error-banner [data-slot='alert-description'] {
+  min-width: 0;
+  flex: 1;
 }
 
 /* Insights application shell -------------------------------------------- */
@@ -341,24 +312,6 @@ input:focus-visible {
   color: var(--ink);
   font-size: clamp(2.75rem, 13vw, 4rem);
   line-height: 0.9;
-}
-
-.invite-promo {
-  flex: 0 0 auto;
-  min-height: 38px;
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  padding: 8px 12px;
-  background: transparent;
-  color: var(--accent);
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.invite-promo:hover,
-.invite-promo:focus-visible {
-  background: var(--accent-soft);
 }
 
 .date-bar {
@@ -637,6 +590,22 @@ input:focus-visible {
   font-weight: 800;
 }
 
+.activity-date-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.activity-date-heading .activity-date-label {
+  margin-bottom: 8px;
+}
+
+.activity-date-total {
+  margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
 .activity-transaction-list {
   list-style: none;
   margin: 0;
@@ -680,11 +649,6 @@ input:focus-visible {
   font-weight: 800;
 }
 
-.transaction-row-copy {
-  min-width: 0;
-  flex: 1;
-}
-
 .transaction-row-title,
 .transaction-row-meta {
   display: block;
@@ -714,7 +678,6 @@ input:focus-visible {
   text-align: right;
 }
 
-.recent-empty,
 .activity-empty {
   margin: 0;
   padding: 8px 20px 24px;
@@ -755,7 +718,7 @@ input:focus-visible {
 }
 
 .view-add-button {
-  min-height: 40px;
+  min-height: 44px;
   flex: 0 0 auto;
   border: 1px solid var(--accent);
   border-radius: 999px;
@@ -768,9 +731,14 @@ input:focus-visible {
 }
 
 .plan-form-card,
-.plan-list-section,
-.statistics-panel {
+.plan-list-section {
   padding: 20px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.statistics-panel {
+  overflow: hidden;
   border-radius: var(--radius-card);
   background: var(--surface);
 }
@@ -785,13 +753,14 @@ input:focus-visible {
 
 .plan-form-heading h2,
 .section-title-row h2,
-.statistics-panel h2 {
+.statistics-panel h2,
+.statistics-panel h3 {
   margin: 0;
   font-size: 1rem;
   font-weight: 800;
 }
 
-.section-title-row > span {
+.section-title-row > [data-slot='badge'] {
   min-width: 28px;
   padding: 5px 8px;
   border-radius: 999px;
@@ -803,8 +772,8 @@ input:focus-visible {
 }
 
 .plan-message {
-  margin: -8px 4px 0;
-  color: var(--positive);
+  margin: -8px 0 0;
+  padding: 12px 14px;
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -826,17 +795,27 @@ input:focus-visible {
 
 .plan-item {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   column-gap: 10px;
   align-items: center;
   padding: 14px 0;
   border-top: 1px solid var(--line);
 }
 
-.plan-item input[type='checkbox'] {
+.plan-checkbox-hit {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+}
+
+.plan-item input[type='checkbox'],
+.plan-item [data-slot='checkbox'] {
   width: 18px;
   height: 18px;
   margin: 0;
+  display: grid;
+  place-items: center;
   accent-color: var(--positive);
   cursor: pointer;
 }
@@ -889,7 +868,13 @@ input:focus-visible {
   font-weight: 800;
 }
 
-.plan-item-actions button:last-child {
+.plan-item-actions .plan-item-action {
+  min-height: 44px;
+  padding: 0;
+}
+
+.plan-item-actions button:last-child,
+.plan-item-action-danger {
   color: var(--danger);
 }
 
@@ -913,12 +898,27 @@ input:focus-visible {
 
 .statistics-summary-grid article {
   min-height: 108px;
-  padding: 16px;
+  overflow: hidden;
+  padding: 0;
   border-radius: 20px;
   background: var(--surface);
 }
 
-.statistics-summary-grid span,
+.statistics-metric-header {
+  gap: 0;
+  padding: 16px 16px 0;
+}
+
+.statistics-metric-label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.statistics-metric-content {
+  padding: 10px 16px 16px;
+}
+
 .statistics-summary-grid small {
   display: block;
   color: var(--muted);
@@ -941,9 +941,20 @@ input:focus-visible {
   margin-top: 4px;
 }
 
-.category-list li + li,
-.largest-purchases-list li + li {
-  margin-top: 16px;
+.statistics-panel-header {
+  padding: 20px 20px 0;
+}
+
+.statistics-panel-content {
+  padding: 0 20px 20px;
+}
+
+.statistics-list-separator {
+  margin: 16px 0;
+}
+
+.largest-purchases-list .statistics-list-separator {
+  grid-column: 1 / -1;
 }
 
 .category-row {
@@ -959,21 +970,6 @@ input:focus-visible {
 .largest-purchases-list strong {
   color: var(--positive);
   font-size: 0.78rem;
-}
-
-.category-track {
-  height: 5px;
-  margin-top: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--field);
-}
-
-.category-track span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
 }
 
 .category-progress {
@@ -1035,15 +1031,6 @@ input:focus-visible {
 
 /* Menu ------------------------------------------------------------------- */
 
-.app-menu-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  justify-content: flex-end;
-  background: rgba(24, 33, 47, 0.2);
-}
-
 .app-menu {
   width: min(348px, 90vw);
   min-height: 100%;
@@ -1061,20 +1048,6 @@ input:focus-visible {
 
 .app-menu-header .section-eyebrow {
   color: var(--muted);
-}
-
-.menu-close-button {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: var(--surface);
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 1.35rem;
-  line-height: 1;
 }
 
 .app-menu-content {
@@ -1129,6 +1102,10 @@ input:focus-visible {
   margin: -6px 4px 2px;
   color: var(--muted);
   font-size: 0.74rem;
+}
+
+.menu-separator {
+  margin: 4px 0;
 }
 
 .menu-panel {
@@ -1205,11 +1182,19 @@ input:focus-visible {
 
 .menu-item {
   padding: 12px 16px;
+  justify-content: flex-start;
+  gap: 12px;
   color: var(--ink);
   font-size: 0.9rem;
   font-weight: 750;
   text-align: left;
   cursor: pointer;
+}
+
+.menu-item svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
 }
 
 .menu-item:hover,
@@ -1224,6 +1209,18 @@ input:focus-visible {
 
 .app-menu .invite-card {
   margin: 0;
+}
+
+.invite-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.invite-code-skeleton {
+  width: 100%;
+  height: 46px;
+  background: var(--surface);
 }
 
 /* Bottom navigation ------------------------------------------------------ */
@@ -1254,6 +1251,7 @@ input:focus-visible {
   border-radius: 14px;
   background: transparent;
   color: var(--muted);
+  padding: 6px 2px;
   cursor: pointer;
   font-size: 0.62rem;
   font-weight: 700;
@@ -1280,16 +1278,6 @@ input:focus-visible {
 }
 
 /* Sheets and form cards -------------------------------------------------- */
-
-.sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  background: rgba(24, 33, 47, 0.2);
-}
 
 .sheet {
   width: min(100%, 620px);
@@ -1363,26 +1351,6 @@ input:focus-visible {
   gap: 8px;
 }
 
-.chip-button {
-  min-height: 36px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 7px 12px;
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.chip-button:hover,
-.chip-button:focus-visible,
-.chip-button-selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
 .optional {
   color: var(--muted);
   font-weight: 500;
@@ -1392,14 +1360,6 @@ input:focus-visible {
   margin: 0;
   font-size: 0.82rem;
   font-weight: 650;
-}
-
-.form-error {
-  color: var(--danger);
-}
-
-.form-success {
-  color: var(--positive);
 }
 
 .invite-code-row,
@@ -1486,19 +1446,6 @@ input:focus-visible {
 
 .detail-delete-button {
   min-height: 48px;
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-control);
-  padding: 12px 16px;
-  background: transparent;
-  color: var(--danger);
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 800;
-}
-
-.detail-delete-button:hover,
-.detail-delete-button:focus-visible {
-  background: var(--danger-soft);
 }
 
 .delete-confirmation {
@@ -1516,6 +1463,7 @@ input:focus-visible {
   *,
   *::before,
   *::after {
+    animation: none !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }

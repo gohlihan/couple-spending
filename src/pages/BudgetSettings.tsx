@@ -2,8 +2,10 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { Budget } from '../lib/db';
 import { saveBudget } from '../lib/budget';
 import { useAuth } from '../lib/use-auth';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
-import { Field, FieldError, FieldLabel } from '../components/ui/field';
+import { Card } from '../components/ui/card';
+import { Field, FieldLabel } from '../components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group';
 
 interface BudgetSettingsProps {
@@ -61,7 +63,7 @@ export default function BudgetSettings({ budget }: BudgetSettingsProps) {
   }
 
   return (
-    <section className="budget-card" aria-labelledby="budget-settings-title">
+    <Card as="section" className="budget-card" aria-labelledby="budget-settings-title">
       <h2 id="budget-settings-title">Budget settings</h2>
       <p className="muted">Set the shared monthly budget. It carries forward until changed.</p>
       <form className="transaction-form" onSubmit={handleSubmit}>
@@ -88,17 +90,19 @@ export default function BudgetSettings({ budget }: BudgetSettingsProps) {
         </Field>
 
         {error && (
-          <FieldError className="form-message">{error}</FieldError>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
         {message && (
-          <p className="form-message form-success" role="status">
-            {message}
-          </p>
+          <Alert variant="success" role="status">
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
         )}
         <Button className="w-full" type="submit" disabled={submitting}>
           {submitting ? 'Saving…' : 'Save budget'}
         </Button>
       </form>
-    </section>
+    </Card>
   );
 }

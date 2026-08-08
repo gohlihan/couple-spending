@@ -1,4 +1,16 @@
 import { useState } from 'react';
+import {
+  ChartColumn,
+  ChartNoAxesCombined,
+  Ellipsis,
+  KeyRound,
+  Link2,
+  ListChecks,
+  LogOut,
+  Plus,
+  Settings2,
+  UserPlus,
+} from 'lucide-react';
 import type { Transaction } from '../lib/db';
 import { formatCurrency } from '../lib/currency';
 import { softDeleteTransaction } from '../lib/transactions';
@@ -31,7 +43,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
+import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +54,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { FieldError } from '../components/ui/field';
+import { Separator } from '../components/ui/separator';
 import {
   Sheet,
   SheetContent,
@@ -50,59 +65,9 @@ import {
 
 type View = 'insights' | 'plan' | 'statistics';
 type NavItem = View | 'add' | 'more';
-type IconName = NavItem;
 
 interface MainProps {
   onSignOut: () => void;
-}
-
-function NavIcon({ name }: { name: IconName }) {
-  const common = {
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.8,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    'aria-hidden': true,
-  };
-
-  if (name === 'insights') {
-    return (
-      <svg {...common}>
-        <path d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
-      </svg>
-    );
-  }
-  if (name === 'plan') {
-    return (
-      <svg {...common}>
-        <path d="M5 4h14v16H5z" />
-        <path d="m8 9 2 2 4-4M8 15h8" />
-      </svg>
-    );
-  }
-  if (name === 'add') {
-    return (
-      <svg {...common}>
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-    );
-  }
-  if (name === 'statistics') {
-    return (
-      <svg {...common}>
-        <path d="M5 19V11m5 8V5m5 14v-5m5 5V8" />
-      </svg>
-    );
-  }
-  return (
-    <svg {...common}>
-      <circle cx="5" cy="12" r="1" fill="currentColor" />
-      <circle cx="12" cy="12" r="1" fill="currentColor" />
-      <circle cx="19" cy="12" r="1" fill="currentColor" />
-    </svg>
-  );
 }
 
 function displayGreeting(name: string | null, email: string | undefined): string {
@@ -256,16 +221,17 @@ export default function Main({ onSignOut }: MainProps) {
           </SheetHeader>
 
           <div className="app-menu-content">
-            <div className="menu-sync-row">
+            <Card className="menu-sync-row">
               <span className="menu-sync-label">Sync status</span>
-              <span
+              <Badge
+                variant="outline"
                 className={`sync-status sync-status-${sync.status.replace(' ', '-')}`}
                 role="status"
                 aria-live="polite"
               >
                 {sync.status}
-              </span>
-            </div>
+              </Badge>
+            </Card>
             {(sync.pendingCount > 0 || sync.failedCount > 0) && (
               <p className="menu-sync-detail">
                 {sync.pendingCount > 0 && `${sync.pendingCount} pending`}
@@ -274,7 +240,7 @@ export default function Main({ onSignOut }: MainProps) {
               </p>
             )}
 
-            <section className="menu-panel" aria-labelledby="household-status-title">
+            <Card as="section" className="menu-panel" aria-labelledby="household-status-title">
               <p className="section-eyebrow">Household</p>
               <h3 id="household-status-title">Who's online</h3>
               <ul className="presence-list">
@@ -298,9 +264,9 @@ export default function Main({ onSignOut }: MainProps) {
               {!presence.connected && (
                 <p className="menu-panel-note">Presence reconnects when online.</p>
               )}
-            </section>
+            </Card>
 
-            <section className="menu-panel" aria-labelledby="recent-activity-title">
+            <Card as="section" className="menu-panel" aria-labelledby="recent-activity-title">
               <div className="menu-panel-heading">
                 <div>
                   <p className="section-eyebrow">Shared history</p>
@@ -324,9 +290,12 @@ export default function Main({ onSignOut }: MainProps) {
                   ))}
                 </ol>
               )}
-            </section>
+            </Card>
+
+            <Separator className="menu-separator" />
 
             <Button variant="ghost" className="menu-item" onClick={openBudget}>
+              <Settings2 aria-hidden="true" />
               Budget settings
             </Button>
             {inviteCode && (
@@ -336,6 +305,7 @@ export default function Main({ onSignOut }: MainProps) {
                   className="menu-item"
                   onClick={() => setShowInvite((visible) => !visible)}
                 >
+                  <UserPlus aria-hidden="true" />
                   {showInvite ? 'Hide invite code' : 'Invite partner'}
                 </Button>
                 {showInvite && <Invite />}
@@ -346,10 +316,12 @@ export default function Main({ onSignOut }: MainProps) {
               className="menu-item"
               onClick={() => setShowLinkPartner((visible) => !visible)}
             >
+              <Link2 aria-hidden="true" />
               {showLinkPartner ? 'Hide link form' : 'Link with partner'}
             </Button>
             {showLinkPartner && <LinkPartner />}
             <Button variant="ghost" className="menu-item" onClick={openPassword}>
+              <KeyRound aria-hidden="true" />
               Change password
             </Button>
             <Button
@@ -360,6 +332,7 @@ export default function Main({ onSignOut }: MainProps) {
                 onSignOut();
               }}
             >
+              <LogOut aria-hidden="true" />
               Sign out
             </Button>
           </div>
@@ -367,51 +340,51 @@ export default function Main({ onSignOut }: MainProps) {
       </Sheet>
 
       <nav className="bottom-nav" aria-label="Primary navigation">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           className={`bottom-nav-item${activeTab === 'insights' ? ' is-active' : ''}`}
           aria-current={activeTab === 'insights' ? 'page' : undefined}
           onClick={() => openView('insights')}
         >
-          <NavIcon name="insights" />
+          <ChartNoAxesCombined aria-hidden="true" />
           <span>Insights</span>
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
           className={`bottom-nav-item${activeTab === 'plan' ? ' is-active' : ''}`}
           aria-current={activeTab === 'plan' ? 'page' : undefined}
           onClick={() => openView('plan')}
         >
-          <NavIcon name="plan" />
+          <ListChecks aria-hidden="true" />
           <span>Plan</span>
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
           className={`bottom-nav-item bottom-nav-add${activeTab === 'add' ? ' is-active' : ''}`}
           aria-current={activeTab === 'add' ? 'page' : undefined}
           onClick={openAdd}
         >
-          <NavIcon name="add" />
+          <Plus aria-hidden="true" />
           <span>Add</span>
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
           className={`bottom-nav-item${activeTab === 'statistics' ? ' is-active' : ''}`}
           aria-current={activeTab === 'statistics' ? 'page' : undefined}
           onClick={() => openView('statistics')}
         >
-          <NavIcon name="statistics" />
+          <ChartColumn aria-hidden="true" />
           <span>Statistics</span>
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
           className={`bottom-nav-item${activeTab === 'more' ? ' is-active' : ''}`}
           aria-current={activeTab === 'more' ? 'page' : undefined}
           onClick={() => openMore()}
         >
-          <NavIcon name="more" />
+          <Ellipsis aria-hidden="true" />
           <span>More</span>
-        </button>
+        </Button>
       </nav>
 
       <Sheet open={showBudget} onOpenChange={closeBudgetSheet}>
@@ -505,7 +478,7 @@ export default function Main({ onSignOut }: MainProps) {
                   Edit transaction
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   className="detail-delete-button"
                   onClick={() => {
                     setTransactionActionError(null);

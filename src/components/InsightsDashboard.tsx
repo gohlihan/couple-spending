@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
 import type { Budget, Transaction } from '../lib/db';
 import { formatCurrency } from '../lib/currency';
 import type { MemberNames } from '../lib/members';
 import { Badge } from './ui/badge';
+import { Card } from './ui/card';
+import { totalForLocalDay } from '../lib/statistics';
 import ActivityTransactionList from './ActivityTransactionList';
 
 const DAY_LABEL = new Intl.DateTimeFormat('en-MY', { weekday: 'narrow' });
@@ -91,6 +94,42 @@ function buildRemainingPoints(
   });
 }
 
+/** Keep date-sensitive dashboard values current while an installed PWA stays open. */
+function useCurrentLocalDate(): Date {
+  const [today, setToday] = useState(() => new Date());
+
+  useEffect(() => {
+    let timeoutId: number | undefined;
+
+    function scheduleNextMidnight() {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      const now = new Date();
+      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const delay = Math.max(nextMidnight.getTime() - now.getTime(), 1000);
+      timeoutId = window.setTimeout(() => {
+        setToday(new Date());
+        scheduleNextMidnight();
+      }, delay);
+    }
+
+    function refreshWhenVisible() {
+      if (document.visibilityState === 'visible') {
+        setToday(new Date());
+        scheduleNextMidnight();
+      }
+    }
+
+    scheduleNextMidnight();
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, []);
+
+  return today;
+}
+
 function MicroChart({ points, label }: { points: ChartPoint[]; label: string }) {
   const chartHeight = 46;
   const chartBottom = 42;
@@ -124,12 +163,12 @@ function MicroChart({ points, label }: { points: ChartPoint[]; label: string }) 
 
 function AnalyticsCard({ label, value, detail, points, tone = 'default' }: AnalyticsCardProps) {
   return (
-    <article className={`analytics-card analytics-card-${tone}`}>
+    <Card as="article" className={`analytics-card analytics-card-${tone}`}>
       <p className="analytics-card-label">{label}</p>
       <p className="analytics-card-value">{value}</p>
       <p className="analytics-card-detail">{detail}</p>
       <MicroChart points={points} label={label} />
-    </article>
+    </Card>
   );
 }
 
@@ -153,10 +192,37 @@ export default function InsightsDashboard({
     budgetAmount === null ? points : buildRemainingPoints(transactions, budgetAmount, month);
   const weeklySpent = points.reduce((sum, point) => sum + point.value, 0);
   const remainingTone = remaining !== null && remaining < 0 ? 'danger' : 'positive';
+  const today = useCurrentLocalDate();
+  const isCurrentMonth =
+    month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth();
+  const todayTotal = isCurrentMonth ? totalForLocalDay(transactions, today) : 0;
+  const todayTransactionCount = isCurrentMonth
+    ? transactions.filter((transaction) => {
+        const spentAt = new Date(transaction.spent_at);
+        return (
+          spentAt.getFullYear() === today.getFullYear() &&
+          spentAt.getMonth() === today.getMonth() &&
+          spentAt.getDate() === today.getDate()
+        );
+      }).length
+    : 0;
 
   return (
     <>
       <section className="analytics-grid" aria-label="Monthly analytics">
+        {isCurrentMonth && (
+          <AnalyticsCard
+            label="Today"
+            value={formatCurrency(todayTotal)}
+            detail={
+              todayTotal > 0
+                ? `${todayTransactionCount} transaction${todayTransactionCount === 1 ? '' : 's'} today`
+                : 'No spending logged today'
+            }
+            points={points}
+            tone={todayTotal > 0 ? 'positive' : 'default'}
+          />
+        )}
         <AnalyticsCard
           label="Spent"
           value={formatCurrency(totalSpent)}
@@ -192,7 +258,8 @@ export default function InsightsDashboard({
         />
       </section>
 
-      <section
+      <Card
+        as="section"
         className="recent-transactions"
         id="recent-transactions"
         aria-labelledby="recent-title"
@@ -211,7 +278,7 @@ export default function InsightsDashboard({
           memberNames={memberNames}
           onOpen={onOpenTransaction}
         />
-      </section>
+      </Card>
     </>
   );
 }

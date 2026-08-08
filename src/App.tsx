@@ -6,6 +6,10 @@ import Signup from './pages/Signup';
 import Join from './pages/Join';
 import Main from './pages/Main';
 import { normalizeInviteCode } from './lib/household';
+import { Alert, AlertDescription } from './components/ui/alert';
+import { Button } from './components/ui/button';
+import { Skeleton } from './components/ui/skeleton';
+import { X } from 'lucide-react';
 
 type AuthView = 'login' | 'signup';
 type Route = 'auth' | 'join' | 'app';
@@ -66,8 +70,12 @@ function Root() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <p>Loading…</p>
+      <div className="loading-screen" role="status" aria-busy="true">
+        <div className="loading-state">
+          <Skeleton className="loading-mark" />
+          <Skeleton className="loading-line" />
+          <p>Loading your shared budget...</p>
+        </div>
       </div>
     );
   }
@@ -77,8 +85,12 @@ function Root() {
   const resolvingMembership = !!session && membershipLoading && !householdId && !pendingSetup;
   if (resolvingMembership) {
     return (
-      <div className="loading-screen">
-        <p>Loading…</p>
+      <div className="loading-screen" role="status" aria-busy="true">
+        <div className="loading-state">
+          <Skeleton className="loading-mark" />
+          <Skeleton className="loading-line" />
+          <p>Loading your household...</p>
+        </div>
       </div>
     );
   }
@@ -86,17 +98,18 @@ function Root() {
   return (
     <div className="app-root">
       {authError && (
-        <div className="error-banner" role="alert">
-          <span>{authError}</span>
-          <button
-            type="button"
+        <Alert variant="destructive" className="error-banner">
+          <AlertDescription>{authError}</AlertDescription>
+          <Button
+            variant="ghost"
+            size="icon"
             className="error-banner-close"
             onClick={clearAuthError}
             aria-label="Dismiss"
           >
-            ×
-          </button>
-        </div>
+            <X aria-hidden="true" />
+          </Button>
+        </Alert>
       )}
 
       {route === 'auth' &&

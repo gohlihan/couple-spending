@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/use-auth'
 import { Button } from '../components/ui/button'
+import { Card } from '../components/ui/card'
 import { Field, FieldLabel } from '../components/ui/field'
 import { Input } from '../components/ui/input'
 
@@ -34,50 +35,58 @@ export default function Login({ onSwitchToSignup }: LoginProps) {
   }
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      <h1 className="auth-title">Couple Spending</h1>
-      <p className="auth-subtitle">Log in to your shared budget</p>
+    <main className="auth-screen">
+      <Card className="auth-card">
+        <div className="auth-brand" aria-hidden="true">
+          <span className="auth-brand-mark">CS</span>
+          <span>Shared money, made simple</span>
+        </div>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <h1 className="auth-title">Couple Spending</h1>
+          <p className="auth-subtitle">Log in to your shared budget</p>
 
-      <Field>
-        <FieldLabel htmlFor="login-email">Email</FieldLabel>
-        <Input
-          id="login-email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={submitting}
-        />
-      </Field>
+          <Field>
+            <FieldLabel htmlFor="login-email">Email</FieldLabel>
+            <Input
+              id="login-email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={submitting}
+            />
+          </Field>
 
-      <Field>
-        <FieldLabel htmlFor="login-password">Password</FieldLabel>
-        <Input
-          id="login-password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          disabled={submitting}
-        />
-      </Field>
+          <Field>
+            <FieldLabel htmlFor="login-password">Password</FieldLabel>
+            <Input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={submitting}
+            />
+          </Field>
 
-      <Button className="w-full" type="submit" disabled={submitting}>
-        {submitting ? 'Logging in…' : 'Log in'}
-      </Button>
+          <Button className="w-full" type="submit" disabled={submitting}>
+            {submitting ? 'Logging in…' : 'Log in'}
+          </Button>
 
-      <Button
-        type="button"
-        variant="link"
-        size="sm"
-        className="self-center px-0"
-        onClick={onSwitchToSignup}
-        disabled={submitting}
-      >
-        New here? Create an account
-      </Button>
-    </form>
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="self-center px-0"
+            onClick={onSwitchToSignup}
+            disabled={submitting}
+          >
+            New here? Create an account
+          </Button>
+        </form>
+      </Card>
+    </main>
   )
 }

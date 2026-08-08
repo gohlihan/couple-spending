@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { linkHouseholdByCode, normalizeInviteCode } from '../lib/household';
 import { useAuth } from '../lib/use-auth';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
-import { Field, FieldError, FieldLabel } from '../components/ui/field';
+import { Card } from '../components/ui/card';
+import { Field, FieldLabel } from '../components/ui/field';
 import { Input } from '../components/ui/input';
 
 export default function LinkPartner() {
@@ -33,7 +35,7 @@ export default function LinkPartner() {
   }
 
   return (
-    <section className="account-form-card" aria-labelledby="link-partner-title">
+    <Card as="section" className="account-form-card" aria-labelledby="link-partner-title">
       <h2 id="link-partner-title">Link with partner</h2>
       <p className="muted">
         Enter your partner’s invite code. This is available only when your current household has no
@@ -56,17 +58,19 @@ export default function LinkPartner() {
           />
         </Field>
         {error && (
-          <FieldError className="form-message">{error}</FieldError>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
         {message && (
-          <p className="form-message form-success" role="status">
-            {message}
-          </p>
+          <Alert variant="success" role="status">
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
         )}
         <Button className="w-full" type="submit" disabled={submitting}>
           {submitting ? 'Linking…' : 'Link household'}
         </Button>
       </form>
-    </section>
+    </Card>
   );
 }

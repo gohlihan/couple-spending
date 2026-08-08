@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { validatePasswordChange } from '../lib/password';
 import { supabase } from '../lib/supabase';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
-import { Field, FieldError, FieldLabel } from '../components/ui/field';
+import { Card } from '../components/ui/card';
+import { Field, FieldLabel } from '../components/ui/field';
 import { Input } from '../components/ui/input';
 
 export default function ChangePassword() {
@@ -37,7 +39,7 @@ export default function ChangePassword() {
   }
 
   return (
-    <section className="account-form-card" aria-labelledby="change-password-title">
+    <Card as="section" className="account-form-card" aria-labelledby="change-password-title">
       <h2 id="change-password-title">Change password</h2>
       <p className="muted">Use a new password with at least 6 characters.</p>
       <form className="transaction-form" onSubmit={submit}>
@@ -68,17 +70,19 @@ export default function ChangePassword() {
           />
         </Field>
         {error && (
-          <FieldError className="form-message">{error}</FieldError>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
         {message && (
-          <p className="form-message form-success" role="status">
-            {message}
-          </p>
+          <Alert variant="success" role="status">
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
         )}
         <Button className="w-full" type="submit" disabled={submitting}>
           {submitting ? 'Saving…' : 'Save new password'}
         </Button>
       </form>
-    </section>
+    </Card>
   );
 }

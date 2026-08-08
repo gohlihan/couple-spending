@@ -16,11 +16,14 @@ export interface StatisticsSummary {
   highestSpendDay: { date: string; amount: number } | null;
 }
 
-function dayKey(timestamp: string): string {
-  const date = new Date(timestamp);
+function localDayKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
     date.getDate(),
   ).padStart(2, '0')}`;
+}
+
+function dayKey(timestamp: string): string {
+  return localDayKey(new Date(timestamp));
 }
 
 function categoryName(transaction: Transaction): string {
@@ -77,6 +80,7 @@ export function calculateStatistics(transactions: Transaction[]): StatisticsSumm
 export interface TransactionDayGroup {
   date: string;
   transactions: Transaction[];
+  total: number;
 }
 
 /** Group active transactions by local calendar day, newest day and row first. */
@@ -92,5 +96,19 @@ export function groupTransactionsByDay(transactions: Transaction[]): Transaction
   }
   return [...groups.entries()]
     .sort(([left], [right]) => right.localeCompare(left))
-    .map(([date, rows]) => ({ date, transactions: rows }));
+    .map(([date, rows]) => ({
+      date,
+      transactions: rows,
+      total: rows.reduce((sum, transaction) => sum + transaction.amount, 0),
+    }));
+}
+
+/** Sum active transactions that fall on the same local calendar day. */
+export function totalForLocalDay(transactions: Transaction[], date: Date): number {
+  const target = localDayKey(date);
+  return transactions.reduce(
+    (total, transaction) =>
+      dayKey(transaction.spent_at) === target ? total + transaction.amount : total,
+    0,
+  );
 }
