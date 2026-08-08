@@ -1,16 +1,22 @@
+import { lazy, Suspense } from 'react';
 import type { Transaction } from '../lib/db';
 import { formatCurrency } from '../lib/currency';
 import { shortId, type MemberNames } from '../lib/members';
-import { calculateStatistics } from '../lib/statistics';
-import { Badge } from '../components/ui/badge';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '../components/ui/card';
-import { Progress } from '../components/ui/progress';
+  cumulativeSeries,
+  cumulativeTransactionSeries,
+  dailySpendingSeries,
+  runningAverageSeries,
+  calculateStatistics,
+} from '../lib/statistics';
+import { useCurrentLocalDate } from '../lib/use-current-local-date';
+import type { CategoryChartPoint } from '../components/CategorySpendingChart';
+import StatisticCard, { type StatisticChartPoint } from '../components/StatisticCard';
+import { Badge } from '../components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Separator } from '../components/ui/separator';
+
+const CategorySpendingChart = lazy(() => import('../components/CategorySpendingChart'));
 
 const DATE_LABEL = new Intl.DateTimeFormat('en-MY', { day: 'numeric', month: 'short' });
 const TIME_LABEL = new Intl.DateTimeFormat('en-MY', {
@@ -24,15 +30,50 @@ function titleFor(transaction: Transaction): string {
   return transaction.note?.trim() || transaction.chip || 'Spending';
 }
 
+function dateFromKey(key: string): Date {
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
+function dayLabel(key: string): string {
+  return DATE_LABEL.format(dateFromKey(key));
+}
+
+function chartPoints(
+  points: Array<{ date: string; value: number; count: number }>,
+): StatisticChartPoint[] {
+  return points.map((point) => ({
+    label: dayLabel(point.date),
+    value: point.value,
+    count: point.count,
+  }));
+}
+
 export default function Statistics({
   transactions,
   memberNames,
+  month,
 }: {
   transactions: Transaction[];
   memberNames: MemberNames;
+  month: Date;
 }) {
+  const asOf = useCurrentLocalDate();
   const statistics = calculateStatistics(transactions);
-  const categoryMax = statistics.categories[0]?.amount ?? 1;
+  const dailyPoints = dailySpendingSeries(transactions, month, asOf);
+  const spentPoints = cumulativeSeries(dailyPoints);
+  const averagePoints = runningAverageSeries(dailyPoints);
+  const transactionPoints = cumulativeTransactionSeries(dailyPoints);
+  const highestDayPoint = statistics.highestSpendDay
+    ? chartPoints(dailyPoints).find(
+        (point) => point.label === dayLabel(statistics.highestSpendDay!.date),
+      )
+    : undefined;
+  const categoryChartData = statistics.categories.map((category) => ({
+    category: category.category,
+    amount: category.amount,
+    count: category.count,
+  }));
 
   return (
     <section className="statistics-screen" aria-labelledby="statistics-title">
@@ -44,46 +85,48 @@ export default function Statistics({
         </div>
       </header>
 
-      <section className="statistics-summary-grid" aria-label="Spending summary">
-        <Card as="article">
-          <CardHeader className="statistics-metric-header">
-            <CardTitle className="statistics-metric-label">Total spent</CardTitle>
-          </CardHeader>
-          <CardContent className="statistics-metric-content">
-            <strong>{formatCurrency(statistics.totalSpent)}</strong>
-          </CardContent>
-        </Card>
-        <Card as="article">
-          <CardHeader className="statistics-metric-header">
-            <CardTitle className="statistics-metric-label">Daily average</CardTitle>
-          </CardHeader>
-          <CardContent className="statistics-metric-content">
-            <strong>{formatCurrency(statistics.averagePerActiveDay)}</strong>
-          </CardContent>
-        </Card>
-        <Card as="article">
-          <CardHeader className="statistics-metric-header">
-            <CardTitle className="statistics-metric-label">Transactions</CardTitle>
-          </CardHeader>
-          <CardContent className="statistics-metric-content">
-            <strong>{statistics.transactionCount}</strong>
-          </CardContent>
-        </Card>
-        <Card as="article">
-          <CardHeader className="statistics-metric-header">
-            <CardTitle className="statistics-metric-label">Highest day</CardTitle>
-          </CardHeader>
-          <CardContent className="statistics-metric-content">
-            <strong>
-              {statistics.highestSpendDay ? formatCurrency(statistics.highestSpendDay.amount) : '—'}
-            </strong>
-            {statistics.highestSpendDay && (
-              <small>
-                {DATE_LABEL.format(new Date(`${statistics.highestSpendDay.date}T12:00:00`))}
-              </small>
-            )}
-          </CardContent>
-        </Card>
+      <section className="analytics-grid statistics-summary-grid" aria-label="Spending summary">
+        <StatisticCard
+          label="Total spent"
+          value={formatCurrency(statistics.totalSpent)}
+          detail={`${statistics.transactionCount} transaction${statistics.transactionCount === 1 ? '' : 's'} this month`}
+          points={chartPoints(spentPoints)}
+          tone="positive"
+          chartLabel="Cumulative total spending for the selected month"
+        />
+        <StatisticCard
+          label="Daily average"
+          value={formatCurrency(statistics.averagePerActiveDay)}
+          detail={`${statistics.activeDays} active day${statistics.activeDays === 1 ? '' : 's'}`}
+          points={chartPoints(averagePoints)}
+          chartLabel="Running average spending per active day"
+        />
+        <StatisticCard
+          label="Transactions"
+          value={String(statistics.transactionCount)}
+          detail="Recorded in the selected month"
+          points={chartPoints(transactionPoints)}
+          valueFormat="number"
+          chartLabel="Cumulative transaction count for the selected month"
+        />
+        <StatisticCard
+          label="Highest day"
+          value={
+            statistics.highestSpendDay ? formatCurrency(statistics.highestSpendDay.amount) : '—'
+          }
+          detail={
+            statistics.highestSpendDay
+              ? DATE_LABEL.format(dateFromKey(statistics.highestSpendDay.date))
+              : 'No spending logged yet'
+          }
+          points={chartPoints(dailyPoints)}
+          chartLabel="Daily spending, with the highest day highlighted"
+          highlight={
+            highestDayPoint
+              ? { label: highestDayPoint.label, value: highestDayPoint.value }
+              : undefined
+          }
+        />
       </section>
 
       <Card as="section" className="statistics-panel" aria-labelledby="category-title">
@@ -97,26 +140,11 @@ export default function Statistics({
           {statistics.categories.length === 0 ? (
             <p className="plan-empty">Add spending to see category patterns.</p>
           ) : (
-            <ol className="category-list">
-              {statistics.categories.map((category, index) => (
-                <li key={category.category}>
-                  {index > 0 && <Separator className="statistics-list-separator" />}
-                  <div className="category-row">
-                    <span>{category.category}</span>
-                    <strong>{formatCurrency(category.amount)}</strong>
-                  </div>
-                  <Progress
-                    className="category-progress"
-                    value={category.amount}
-                    max={categoryMax}
-                    aria-label={`${category.category} spending share`}
-                  />
-                  <small>
-                    {category.count} transaction{category.count === 1 ? '' : 's'}
-                  </small>
-                </li>
-              ))}
-            </ol>
+            <Suspense
+              fallback={<div className="category-chart chart-loading" aria-hidden="true" />}
+            >
+              <CategorySpendingChart data={categoryChartData as CategoryChartPoint[]} />
+            </Suspense>
           )}
         </CardContent>
       </Card>

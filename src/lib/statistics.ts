@@ -16,7 +16,7 @@ export interface StatisticsSummary {
   highestSpendDay: { date: string; amount: number } | null;
 }
 
-function localDayKey(date: Date): string {
+export function localDayKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
     date.getDate(),
   ).padStart(2, '0')}`;
@@ -24,6 +24,126 @@ function localDayKey(date: Date): string {
 
 function dayKey(timestamp: string): string {
   return localDayKey(new Date(timestamp));
+}
+
+export interface DailyStatisticPoint {
+  date: string;
+  value: number;
+  count: number;
+}
+
+export interface HourlyStatisticPoint {
+  hour: number;
+  value: number;
+}
+
+function isCurrentMonth(month: Date, asOf: Date): boolean {
+  return month.getFullYear() === asOf.getFullYear() && month.getMonth() === asOf.getMonth();
+}
+
+function monthEndDay(month: Date): number {
+  return new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+}
+
+function totalsByDay(transactions: Transaction[]): Map<string, { value: number; count: number }> {
+  const totals = new Map<string, { value: number; count: number }>();
+  for (const transaction of transactions) {
+    const key = dayKey(transaction.spent_at);
+    const current = totals.get(key) ?? { value: 0, count: 0 };
+    current.value += transaction.amount;
+    current.count += 1;
+    totals.set(key, current);
+  }
+  return totals;
+}
+
+/** Build one local-calendar point for each day visible in the selected month. */
+export function dailySpendingSeries(
+  transactions: Transaction[],
+  month: Date,
+  asOf = new Date(),
+): DailyStatisticPoint[] {
+  const endDay = isCurrentMonth(month, asOf) ? asOf.getDate() : monthEndDay(month);
+  const totals = totalsByDay(transactions);
+  return Array.from({ length: endDay }, (_, index) => {
+    const date = new Date(month.getFullYear(), month.getMonth(), index + 1, 12);
+    const entry = totals.get(localDayKey(date));
+    return { date: localDayKey(date), value: entry?.value ?? 0, count: entry?.count ?? 0 };
+  });
+}
+
+/** Turn daily amounts into a running total. */
+export function cumulativeSeries(points: DailyStatisticPoint[]): DailyStatisticPoint[] {
+  let runningValue = 0;
+  let runningCount = 0;
+  return points.map((point) => {
+    runningValue += point.value;
+    runningCount += point.count;
+    return { date: point.date, value: runningValue, count: runningCount };
+  });
+}
+
+/** Calculate the remaining shared budget after each visible day. */
+export function remainingBudgetSeries(
+  points: DailyStatisticPoint[],
+  budget: number,
+): DailyStatisticPoint[] {
+  return cumulativeSeries(points).map((point) => ({
+    ...point,
+    value: budget - point.value,
+  }));
+}
+
+/** Calculate the running average across days that contain transactions. */
+export function runningAverageSeries(points: DailyStatisticPoint[]): DailyStatisticPoint[] {
+  let runningTotal = 0;
+  let activeDays = 0;
+  return points.map((point) => {
+    runningTotal += point.value;
+    if (point.count > 0) activeDays += 1;
+    return {
+      date: point.date,
+      value: activeDays === 0 ? 0 : runningTotal / activeDays,
+      count: point.count,
+    };
+  });
+}
+
+/** Calculate the running transaction count across the visible month. */
+export function cumulativeTransactionSeries(points: DailyStatisticPoint[]): DailyStatisticPoint[] {
+  return cumulativeSeries(points).map((point) => ({ ...point, value: point.count }));
+}
+
+/** Build a seven-day local-calendar window ending at the selected month endpoint. */
+export function lastSevenDaysSpendingSeries(
+  transactions: Transaction[],
+  month: Date,
+  asOf = new Date(),
+): DailyStatisticPoint[] {
+  const end = isCurrentMonth(month, asOf)
+    ? new Date(asOf.getFullYear(), asOf.getMonth(), asOf.getDate(), 12)
+    : new Date(month.getFullYear(), month.getMonth() + 1, 0, 12);
+  const totals = totalsByDay(transactions);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(end);
+    date.setDate(end.getDate() - 6 + index);
+    const entry = totals.get(localDayKey(date));
+    return { date: localDayKey(date), value: entry?.value ?? 0, count: entry?.count ?? 0 };
+  });
+}
+
+/** Sum spending into 24 local-hour buckets for a Today chart. */
+export function hourlySpendingSeries(
+  transactions: Transaction[],
+  date: Date,
+): HourlyStatisticPoint[] {
+  const totals = Array.from({ length: 24 }, () => 0);
+  const target = localDayKey(date);
+  for (const transaction of transactions) {
+    const spentAt = new Date(transaction.spent_at);
+    if (localDayKey(spentAt) === target) totals[spentAt.getHours()] += transaction.amount;
+  }
+  return totals.map((value, hour) => ({ hour, value }));
 }
 
 function categoryName(transaction: Transaction): string {

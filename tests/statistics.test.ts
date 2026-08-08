@@ -4,6 +4,13 @@ import type { Transaction } from '../src/lib/db.ts';
 import {
   calculateStatistics,
   groupTransactionsByDay,
+  cumulativeSeries,
+  cumulativeTransactionSeries,
+  dailySpendingSeries,
+  hourlySpendingSeries,
+  lastSevenDaysSpendingSeries,
+  remainingBudgetSeries,
+  runningAverageSeries,
   totalForLocalDay,
 } from '../src/lib/statistics.ts';
 
@@ -92,4 +99,54 @@ test('sums transactions for a local calendar day', () => {
   assert.equal(totalForLocalDay(transactions, localDate(2026, 7, 27)), 20);
   assert.equal(totalForLocalDay(transactions, localDate(2026, 7, 29)), 0);
   assert.equal(totalForLocalDay([], localDate(2026, 7, 27)), 0);
+});
+
+test('builds zero-filled monthly series and running metrics from local days', () => {
+  const transactions = [
+    transaction({ id: 'first', amount: 10, spent_at: localTimestamp(2026, 7, 1, 9) }),
+    transaction({ id: 'third-a', amount: 5, spent_at: localTimestamp(2026, 7, 3, 9) }),
+    transaction({ id: 'third-b', amount: 2, spent_at: localTimestamp(2026, 7, 3, 18) }),
+  ];
+  const daily = dailySpendingSeries(transactions, localDate(2026, 7, 1), localDate(2026, 7, 3, 20));
+
+  assert.deepEqual(
+    daily.map((point) => point.value),
+    [10, 0, 7],
+  );
+  assert.deepEqual(
+    cumulativeSeries(daily).map((point) => point.value),
+    [10, 10, 17],
+  );
+  assert.deepEqual(
+    remainingBudgetSeries(daily, 100).map((point) => point.value),
+    [90, 90, 83],
+  );
+  assert.deepEqual(
+    runningAverageSeries(daily).map((point) => point.value),
+    [10, 10, 8.5],
+  );
+  assert.deepEqual(
+    cumulativeTransactionSeries(daily).map((point) => point.value),
+    [1, 1, 3],
+  );
+});
+
+test('builds historical month, rolling seven-day, and hourly series boundaries', () => {
+  const transactions = [
+    transaction({ id: 'morning', amount: 10, spent_at: localTimestamp(2026, 7, 1, 2) }),
+    transaction({ id: 'evening', amount: 5, spent_at: localTimestamp(2026, 7, 1, 14) }),
+  ];
+  const currentMonth = localDate(2026, 7, 1);
+  const asOf = localDate(2026, 7, 7);
+
+  assert.equal(dailySpendingSeries(transactions, currentMonth, asOf).length, 7);
+  assert.equal(dailySpendingSeries(transactions, currentMonth, localDate(2026, 8, 1)).length, 31);
+  assert.deepEqual(
+    lastSevenDaysSpendingSeries(transactions, currentMonth, asOf).map((point) => point.value),
+    [15, 0, 0, 0, 0, 0, 0],
+  );
+  const hourly = hourlySpendingSeries(transactions, localDate(2026, 7, 1));
+  assert.equal(hourly.length, 24);
+  assert.equal(hourly[2]?.value, 10);
+  assert.equal(hourly[14]?.value, 5);
 });

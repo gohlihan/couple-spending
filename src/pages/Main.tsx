@@ -206,7 +206,7 @@ export default function Main({ onSignOut }: MainProps) {
         )}
         {view === 'plan' && <Plan memberNames={memberNames} />}
         {view === 'statistics' && (
-          <Statistics transactions={transactions} memberNames={memberNames} />
+          <Statistics transactions={transactions} memberNames={memberNames} month={month} />
         )}
       </main>
 
