@@ -49,6 +49,12 @@ function chartPoints(
   }));
 }
 
+const MEDAL_RANKS = ['purchase-rank-gold', 'purchase-rank-silver', 'purchase-rank-bronze'];
+
+function rankClass(index: number): string {
+  return MEDAL_RANKS[index] ?? '';
+}
+
 export default function Statistics({
   transactions,
   memberNames,
@@ -164,7 +170,7 @@ export default function Statistics({
               {statistics.largestPurchases.map((transaction, index) => (
                 <li key={transaction.id}>
                   {index > 0 && <Separator className="statistics-list-separator" />}
-                  <span className="purchase-rank">{index + 1}</span>
+                  <span className={`purchase-rank ${rankClass(index)}`}>{index + 1}</span>
                   <div>
                     <p>{titleFor(transaction)}</p>
                     <span>

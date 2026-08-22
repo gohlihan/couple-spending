@@ -18,6 +18,12 @@
   --positive-soft: #effaf6;
   --danger: #c8414b;
   --danger-soft: #fff3f4;
+  --medal-gold: #d9a514;
+  --medal-gold-soft: #fdf6e0;
+  --medal-silver: #8a97a8;
+  --medal-silver-soft: #f1f4f8;
+  --medal-bronze: #b0793f;
+  --medal-bronze-soft: #faf1e7;
   --line: #e8edf3;
   --field: #f8fafc;
   --radius-card: 24px;
@@ -924,6 +930,21 @@ textarea:focus-visible,
   color: var(--accent);
   font-size: 0.68rem;
   font-weight: 800;
+}
+
+.purchase-rank.purchase-rank-gold {
+  background: var(--medal-gold-soft);
+  color: var(--medal-gold);
+}
+
+.purchase-rank.purchase-rank-silver {
+  background: var(--medal-silver-soft);
+  color: var(--medal-silver);
+}
+
+.purchase-rank.purchase-rank-bronze {
+  background: var(--medal-bronze-soft);
+  color: var(--medal-bronze);
 }
 
 .largest-purchases-list p,

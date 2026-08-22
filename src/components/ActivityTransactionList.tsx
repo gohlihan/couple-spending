@@ -1,4 +1,5 @@
 import type { Transaction } from '../lib/db';
+import { categoryIcon } from '../lib/category-icons';
 import { formatCurrency } from '../lib/currency';
 import { shortId, type MemberNames } from '../lib/members';
 import { groupTransactionsByDay } from '../lib/statistics';
@@ -24,13 +25,6 @@ function titleFor(transaction: Transaction): string {
   return transaction.note?.trim() || transaction.chip || 'Spending';
 }
 
-function iconFor(transaction: Transaction): string {
-  const icon: Record<string, string> = { eat: 'E', shop: 'S', petrol: 'P', bills: 'B', fun: 'F' };
-  return transaction.chip
-    ? (icon[transaction.chip] ?? transaction.chip[0]?.toUpperCase() ?? '•')
-    : '•';
-}
-
 function dateFromKey(key: string): Date {
   return new Date(`${key}T12:00:00`);
 }
@@ -44,6 +38,7 @@ function TransactionRow({
   payerName: string;
   onOpen: () => void;
 }) {
+  const Icon = categoryIcon(transaction.chip);
   return (
     <li className="activity-transaction-item">
       <button
@@ -53,7 +48,7 @@ function TransactionRow({
         onClick={onOpen}
       >
         <span className="transaction-category-icon" aria-hidden="true">
-          {iconFor(transaction)}
+          <Icon size={16} strokeWidth={2.2} />
         </span>
         <span className="activity-transaction-copy">
           <span className="transaction-row-title">{titleFor(transaction)}</span>
