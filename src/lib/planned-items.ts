@@ -13,6 +13,7 @@ export interface PlanItemInput {
   title: string;
   amount: number;
   plannedFor?: string | null;
+  eventId?: string | null;
 }
 
 export interface PlanCompletionPayload {
@@ -39,7 +40,8 @@ function normalizeInput(input: PlanItemInput): Required<PlanItemInput> {
   if (plannedFor && !/^\d{4}-\d{2}-\d{2}$/.test(plannedFor)) {
     throw new Error('Choose a valid purchase date.');
   }
-  return { title, amount: input.amount, plannedFor };
+  const eventId = input.eventId?.trim() || null;
+  return { title, amount: input.amount, plannedFor, eventId };
 }
 
 function queuePlanChange(item: PlannedItem, op: 'insert' | 'update' | 'delete', queueId: string) {
@@ -79,6 +81,7 @@ export async function addPlannedItem(
     completed_by: null,
     spent_transaction_id: null,
     completion_client_id: null,
+    event_id: normalized.eventId,
     client_id: clientId,
   };
 
@@ -105,6 +108,8 @@ export async function updatePlannedItem(
     title: normalized.title,
     amount: normalized.amount,
     planned_for: normalized.plannedFor,
+    // Editing an item never changes its event membership.
+    event_id: existing.event_id ?? null,
     updated_at: nextLocalUpdatedAt(new Date(), existing.updated_at),
     updated_by: author.user.id,
   };

@@ -1,6 +1,13 @@
 import { liveQuery } from 'dexie';
 import { useEffect, useState } from 'react';
-import { db, type Budget, type PendingChange, type PlannedItem, type Transaction } from './db';
+import {
+  db,
+  type Budget,
+  type PendingChange,
+  type PlannedItem,
+  type PlanningEvent,
+  type Transaction,
+} from './db';
 import { supabase } from './supabase';
 import { parseRealtimeDelete } from './realtime-delete';
 import { hasUnresolvedEarlierChange, queueChangeKey } from './sync-queue';
@@ -17,7 +24,9 @@ const TRANSACTION_COLUMNS =
   'id, household_id, amount, spent_at, note, chip, payer_id, created_by, created_at, updated_at, updated_by, deleted_at, deleted_by, client_id, planned_item_id';
 const BUDGET_COLUMNS = 'id, household_id, amount, updated_at, updated_by';
 const PLANNED_ITEM_COLUMNS =
-  'id, household_id, title, amount, planned_for, created_by, created_at, updated_at, updated_by, completed_at, completed_by, spent_transaction_id, completion_client_id, client_id';
+  'id, household_id, title, amount, planned_for, created_by, created_at, updated_at, updated_by, completed_at, completed_by, spent_transaction_id, completion_client_id, event_id, client_id';
+const PLANNING_EVENT_COLUMNS =
+  'id, household_id, title, starts_on, ends_on, note, created_by, created_at, updated_at, updated_by, client_id';
 
 const TRANSACTION_UPSERT_FIELDS = [
   'id',
@@ -40,7 +49,7 @@ const TRANSACTION_UPDATE_FIELDS = TRANSACTION_UPSERT_FIELDS.filter(
   (field) => !['id', 'household_id', 'client_id'].includes(field),
 );
 
-type SyncTable = 'transactions' | 'budgets' | 'planned_items';
+type SyncTable = 'transactions' | 'budgets' | 'planning_events' | 'planned_items';
 type RemoteRecord = Record<string, unknown>;
 type RealtimeEvent = 'INSERT' | 'UPDATE' | 'DELETE';
 
@@ -190,8 +199,36 @@ function toPlannedItem(row: RemoteRecord, householdId: string): PlannedItem | nu
     completed_by: asString(row.completed_by),
     spent_transaction_id: asString(row.spent_transaction_id),
     completion_client_id: asString(row.completion_client_id),
+    event_id: asString(row.event_id),
     client_id: clientId ?? id,
     legacy_client_id: clientId === null,
+  };
+}
+
+function toPlanningEvent(row: RemoteRecord, householdId: string): PlanningEvent | null {
+  const id = asString(row.id);
+  const rowHouseholdId = asString(row.household_id);
+  const title = asString(row.title);
+  const createdAt = asString(row.created_at);
+  const updatedAt = asString(row.updated_at);
+  if (!id || rowHouseholdId !== householdId || !title || !createdAt || !updatedAt) {
+    return null;
+  }
+
+  const clientId = asString(row.client_id);
+  observeUpdatedAt(updatedAt);
+  return {
+    id,
+    household_id: householdId,
+    title,
+    starts_on: asString(row.starts_on),
+    ends_on: asString(row.ends_on),
+    note: asString(row.note),
+    created_by: asString(row.created_by) ?? '',
+    created_at: createdAt,
+    updated_at: updatedAt,
+    updated_by: asString(row.updated_by),
+    client_id: clientId ?? id,
   };
 }
 
@@ -237,6 +274,23 @@ function plannedItemPayload(payload: RemoteRecord): RemoteRecord {
     'completed_by',
     'spent_transaction_id',
     'completion_client_id',
+    'event_id',
+    'client_id',
+  ]);
+}
+
+function planningEventPayload(payload: RemoteRecord): RemoteRecord {
+  return pickFields(payload, [
+    'id',
+    'household_id',
+    'title',
+    'starts_on',
+    'ends_on',
+    'note',
+    'created_by',
+    'created_at',
+    'updated_at',
+    'updated_by',
     'client_id',
   ]);
 }
@@ -470,6 +524,35 @@ class SyncEngine {
         {
           event: 'INSERT',
           schema: 'public',
+          table: 'planning_events',
+          filter: householdFilter,
+        },
+        (payload) => handlePayload('planning_events', payload),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'planning_events',
+          filter: householdFilter,
+        },
+        (payload) => handlePayload('planning_events', payload),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'planning_events',
+        },
+        (payload) => handlePayload('planning_events', payload),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
           table: 'planned_items',
           filter: householdFilter,
         },
@@ -543,24 +626,30 @@ class SyncEngine {
     this.publish({ hydrating: true });
 
     try {
-      const [transactionResult, budgetResult, plannedItemResult] = await Promise.all([
-        supabase
-          .from('transactions')
-          .select(TRANSACTION_COLUMNS)
-          .eq('household_id', this.householdId),
-        supabase
-          .from('budgets')
-          .select(BUDGET_COLUMNS)
-          .eq('household_id', this.householdId)
-          .maybeSingle(),
-        supabase
-          .from('planned_items')
-          .select(PLANNED_ITEM_COLUMNS)
-          .eq('household_id', this.householdId),
-      ]);
+      const [transactionResult, budgetResult, plannedItemResult, planningEventResult] =
+        await Promise.all([
+          supabase
+            .from('transactions')
+            .select(TRANSACTION_COLUMNS)
+            .eq('household_id', this.householdId),
+          supabase
+            .from('budgets')
+            .select(BUDGET_COLUMNS)
+            .eq('household_id', this.householdId)
+            .maybeSingle(),
+          supabase
+            .from('planned_items')
+            .select(PLANNED_ITEM_COLUMNS)
+            .eq('household_id', this.householdId),
+          supabase
+            .from('planning_events')
+            .select(PLANNING_EVENT_COLUMNS)
+            .eq('household_id', this.householdId),
+        ]);
       if (transactionResult.error) throw transactionResult.error;
       if (budgetResult.error) throw budgetResult.error;
       if (plannedItemResult.error) throw plannedItemResult.error;
+      if (planningEventResult.error) throw planningEventResult.error;
       if (this.stopped) return;
 
       const remoteTransactions = (transactionResult.data ?? [])
@@ -572,14 +661,19 @@ class SyncEngine {
       const remotePlannedItems = (plannedItemResult.data ?? [])
         .map((row) => toPlannedItem(row as RemoteRecord, this.householdId))
         .filter((row): row is PlannedItem => row !== null);
+      const remotePlanningEvents = (planningEventResult.data ?? [])
+        .map((row) => toPlanningEvent(row as RemoteRecord, this.householdId))
+        .filter((row): row is PlanningEvent => row !== null);
       const remoteTransactionIds = new Set(remoteTransactions.map((row) => row.id));
       const remotePlannedItemIds = new Set(remotePlannedItems.map((row) => row.id));
+      const remotePlanningEventIds = new Set(remotePlanningEvents.map((row) => row.id));
 
       await db.transaction(
         'rw',
         db.transactions,
         db.budgets,
         db.plannedItems,
+        db.planningEvents,
         db.pendingChanges,
         async () => {
           const localTransactions = await db.transactions
@@ -591,6 +685,10 @@ class SyncEngine {
             .equals(this.householdId)
             .first();
           const localPlannedItems = await db.plannedItems
+            .where('household_id')
+            .equals(this.householdId)
+            .toArray();
+          const localPlanningEvents = await db.planningEvents
             .where('household_id')
             .equals(this.householdId)
             .toArray();
@@ -644,6 +742,26 @@ class SyncEngine {
               !(pendingByRecord.get(`planned_items:${local.id}`)?.length ?? 0)
             ) {
               await db.plannedItems.delete(local.id);
+            }
+          }
+
+          for (const remote of remotePlanningEvents) {
+            if (this.stopped) return;
+            const local = localPlanningEvents.find((event) => event.id === remote.id);
+            const eventPending = pendingByRecord.get(`planning_events:${remote.id}`) ?? [];
+            if (
+              shouldApplyRemote(versionOf(remote), local ? versionOf(local) : null, eventPending)
+            ) {
+              await db.planningEvents.put(remote);
+            }
+          }
+          for (const local of localPlanningEvents) {
+            if (this.stopped) return;
+            if (
+              !remotePlanningEventIds.has(local.id) &&
+              !(pendingByRecord.get(`planning_events:${local.id}`)?.length ?? 0)
+            ) {
+              await db.planningEvents.delete(local.id);
             }
           }
 
@@ -910,6 +1028,37 @@ class SyncEngine {
       return;
     }
 
+    if (change.table === 'planning_events') {
+      if (change.op === 'delete') {
+        await this.pushPlanningEventDelete(change, payload);
+        return;
+      }
+
+      const planningEvent = toPlanningEvent(payload, this.householdId);
+      if (!planningEvent) throw new Error('Queued planning event payload is invalid');
+      const remote = await this.fetchRemotePlanningEvent(change.record_id);
+      if (this.stopped) return;
+      if (remote && compareVersions(versionOf(remote), versionOf(planningEvent)) > 0) {
+        await this.mergeRemotePlanningEvent(remote);
+        return;
+      }
+      if (!remote && change.op === 'update') {
+        await this.removeLocalPlanningEventAfterResolution(
+          change.record_id,
+          versionOf(planningEvent),
+          change.client_id,
+        );
+        return;
+      }
+
+      const { error } = await supabase
+        .from('planning_events')
+        .upsert(planningEventPayload(payload), { onConflict: 'client_id' });
+      if (error) throw error;
+      await this.reconcilePlanningEvent(change);
+      return;
+    }
+
     if (change.op === 'delete') {
       await this.pushBudgetDelete(change, payload);
       return;
@@ -1068,6 +1217,48 @@ class SyncEngine {
     );
   }
 
+  private async pushPlanningEventDelete(
+    change: PendingChange,
+    payload: RemoteRecord,
+  ): Promise<void> {
+    const requestedVersion = payloadVersion(payload);
+    const remote = await this.fetchRemotePlanningEvent(change.record_id);
+    if (this.stopped) return;
+    if (!remote) {
+      await this.removeLocalPlanningEventAfterResolution(
+        change.record_id,
+        requestedVersion.updated_at ? requestedVersion : null,
+        change.client_id,
+      );
+      return;
+    }
+    if (requestedVersion.updated_at && compareVersions(versionOf(remote), requestedVersion) > 0) {
+      await this.mergeRemotePlanningEvent(remote);
+      return;
+    }
+
+    const expectedVersion = requestedVersion.updated_at ? requestedVersion : versionOf(remote);
+    const deleted = await this.deletePlanningEventConditionally(change.record_id, expectedVersion);
+    if (this.stopped) return;
+    if (!deleted) {
+      const latest = await this.fetchRemotePlanningEvent(change.record_id);
+      if (this.stopped) return;
+      if (latest) await this.mergeRemotePlanningEvent(latest);
+      else
+        await this.removeLocalPlanningEventAfterResolution(
+          change.record_id,
+          null,
+          change.client_id,
+        );
+      return;
+    }
+    await this.removeLocalPlanningEventAfterResolution(
+      change.record_id,
+      expectedVersion,
+      change.client_id,
+    );
+  }
+
   private async deleteTransactionConditionally(
     recordId: string,
     expected: VersionStamp,
@@ -1101,6 +1292,23 @@ class SyncEngine {
   ): Promise<boolean> {
     let request = supabase
       .from('planned_items')
+      .delete()
+      .eq('household_id', this.householdId)
+      .eq('id', recordId);
+    if (expected.updated_at) request = request.eq('updated_at', expected.updated_at);
+    if (expected.updated_by) request = request.eq('updated_by', expected.updated_by);
+    else request = request.is('updated_by', null);
+    const result = (await request.select('id')) as PostgrestDeleteResult;
+    if (result.error) throw result.error;
+    return (result.data?.length ?? 0) > 0;
+  }
+
+  private async deletePlanningEventConditionally(
+    recordId: string,
+    expected: VersionStamp,
+  ): Promise<boolean> {
+    let request = supabase
+      .from('planning_events')
       .delete()
       .eq('household_id', this.householdId)
       .eq('id', recordId);
@@ -1161,6 +1369,24 @@ class SyncEngine {
     }
   }
 
+  private async reconcilePlanningEvent(change: PendingChange): Promise<void> {
+    if (this.stopped) return;
+    try {
+      const stored = await this.fetchRemotePlanningEvent(change.record_id);
+      if (this.stopped) return;
+      if (stored) await this.mergeRemotePlanningEvent(stored);
+      else if (change.op === 'update') {
+        await this.removeLocalPlanningEventAfterResolution(
+          change.record_id,
+          payloadVersion(change.payload),
+          change.client_id,
+        );
+      }
+    } catch (error: unknown) {
+      this.reportReconciliationError(error);
+    }
+  }
+
   private async fetchRemoteTransaction(recordId: string): Promise<Transaction | null> {
     const { data, error } = await supabase
       .from('transactions')
@@ -1192,6 +1418,17 @@ class SyncEngine {
       .maybeSingle();
     if (error) throw error;
     return data ? toPlannedItem(data as RemoteRecord, this.householdId) : null;
+  }
+
+  private async fetchRemotePlanningEvent(recordId: string): Promise<PlanningEvent | null> {
+    const { data, error } = await supabase
+      .from('planning_events')
+      .select(PLANNING_EVENT_COLUMNS)
+      .eq('household_id', this.householdId)
+      .eq('id', recordId)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? toPlanningEvent(data as RemoteRecord, this.householdId) : null;
   }
 
   private async removeLocalTransactionAfterResolution(
@@ -1293,6 +1530,42 @@ class SyncEngine {
           : compareVersions(queued, resolvedVersion) > 0;
       });
       if (!localIsNewer && !newerPending && !this.stopped) await db.plannedItems.delete(recordId);
+    });
+  }
+
+  private async removeLocalPlanningEventAfterResolution(
+    recordId: string,
+    resolvedVersion: VersionStamp | null,
+    currentChangeId: string,
+  ): Promise<void> {
+    if (this.stopped) return;
+    await db.transaction('rw', db.planningEvents, db.pendingChanges, async () => {
+      const local = await db.planningEvents
+        .where('id')
+        .equals(recordId)
+        .filter((row) => row.household_id === this.householdId)
+        .first();
+      const active = await db.pendingChanges
+        .where('household_id')
+        .equals(this.householdId)
+        .filter(
+          (change) =>
+            change.client_id !== currentChangeId &&
+            change.table === 'planning_events' &&
+            change.record_id === recordId &&
+            (change.status === 'pending' || change.status === 'failed'),
+        )
+        .toArray();
+      if (this.stopped || !local) return;
+      const localIsNewer =
+        resolvedVersion !== null && compareVersions(versionOf(local), resolvedVersion) > 0;
+      const newerPending = active.some((change) => {
+        const queued = payloadVersion(change.payload);
+        return !queued.updated_at || resolvedVersion === null
+          ? true
+          : compareVersions(queued, resolvedVersion) > 0;
+      });
+      if (!localIsNewer && !newerPending && !this.stopped) await db.planningEvents.delete(recordId);
     });
   }
 
@@ -1412,6 +1685,31 @@ class SyncEngine {
     });
   }
 
+  private async mergeRemotePlanningEvent(remote: PlanningEvent): Promise<void> {
+    if (this.stopped) return;
+    await db.transaction('rw', db.planningEvents, db.pendingChanges, async () => {
+      const local = await db.planningEvents
+        .where('id')
+        .equals(remote.id)
+        .filter((row) => row.household_id === this.householdId)
+        .first();
+      const pending = await db.pendingChanges
+        .where('household_id')
+        .equals(this.householdId)
+        .filter(
+          (change) =>
+            change.table === 'planning_events' &&
+            change.record_id === remote.id &&
+            (change.status === 'pending' || change.status === 'failed'),
+        )
+        .toArray();
+      if (this.stopped) return;
+      if (shouldApplyRemote(versionOf(remote), local ? versionOf(local) : null, pending)) {
+        await db.planningEvents.put(remote);
+      }
+    });
+  }
+
   private async handleRealtimeChange(
     table: SyncTable,
     event: RealtimeEvent,
@@ -1442,6 +1740,9 @@ class SyncEngine {
     } else if (table === 'budgets') {
       const remote = toBudget(row, this.householdId);
       if (remote) await this.mergeRemoteBudget(remote);
+    } else if (table === 'planning_events') {
+      const remote = toPlanningEvent(row, this.householdId);
+      if (remote) await this.mergeRemotePlanningEvent(remote);
     } else {
       const remote = toPlannedItem(row, this.householdId);
       if (remote) await this.mergeRemotePlannedItem(remote);
@@ -1470,6 +1771,13 @@ class SyncEngine {
         if (this.stopped) return;
         if (current) {
           await this.mergeRemotePlannedItem(current);
+          return;
+        }
+      } else if (table === 'planning_events') {
+        const current = await this.fetchRemotePlanningEvent(recordId);
+        if (this.stopped) return;
+        if (current) {
+          await this.mergeRemotePlanningEvent(current);
           return;
         }
       } else {
@@ -1554,6 +1862,36 @@ class SyncEngine {
           !this.stopped
         ) {
           await db.plannedItems.delete(recordId);
+        }
+      });
+      return;
+    }
+
+    if (table === 'planning_events') {
+      await db.transaction('rw', db.planningEvents, db.pendingChanges, async () => {
+        const local = await db.planningEvents
+          .where('id')
+          .equals(recordId)
+          .filter((row) => row.household_id === this.householdId)
+          .first();
+        const pending = await db.pendingChanges
+          .where('household_id')
+          .equals(this.householdId)
+          .filter(
+            (change) =>
+              change.table === 'planning_events' &&
+              change.record_id === recordId &&
+              (change.status === 'pending' || change.status === 'failed'),
+          )
+          .toArray();
+        if (this.stopped) return;
+        if (
+          local &&
+          !pendingProtectsRemote(pending, remote) &&
+          (remote.updated_at === null || compareVersions(remote, versionOf(local)) >= 0) &&
+          !this.stopped
+        ) {
+          await db.planningEvents.delete(recordId);
         }
       });
       return;

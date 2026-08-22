@@ -52,16 +52,33 @@ export interface PlannedItem {
   completed_by: string | null;
   spent_transaction_id: string | null;
   completion_client_id: string | null;
+  /** Event this item belongs to; null keeps it on the general to-buy list. */
+  event_id?: string | null;
   client_id: string;
   /** True when client_id is a local-only fallback for a legacy NULL row. */
   legacy_client_id?: boolean;
+}
+
+/** A named trip or project that groups planned items together. */
+export interface PlanningEvent {
+  id: string;
+  household_id: string;
+  title: string;
+  starts_on: string | null;
+  ends_on: string | null;
+  note: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  updated_by: string | null;
+  client_id: string;
 }
 
 export interface PendingChange {
   client_id: string;
   household_id: string;
   op: 'insert' | 'update' | 'delete' | 'complete';
-  table: 'transactions' | 'budgets' | 'planned_items';
+  table: 'transactions' | 'budgets' | 'planned_items' | 'planning_events';
   record_id: string;
   payload: unknown;
   created_at: string;
@@ -84,6 +101,7 @@ class CoupleSpendingDatabase extends Dexie {
   transactions!: Table<Transaction, string>;
   budgets!: Table<Budget, string>;
   plannedItems!: Table<PlannedItem, string>;
+  planningEvents!: Table<PlanningEvent, string>;
   pendingChanges!: Table<PendingChange, string>;
 
   constructor() {
@@ -174,6 +192,19 @@ class CoupleSpendingDatabase extends Dexie {
               .modify((change: PendingChange) => backfillTransactionPayer(change.payload)),
           ),
       );
+
+    // Event planning groups planned items under named trips or projects. The
+    // join is a plain nullable column so removing an event can never strand a
+    // completed item; clients detach linked items before the delete lands.
+    this.version(6).stores({
+      transactions: 'id, household_id, spent_at, &client_id, deleted_at',
+      budgets: 'id, household_id',
+      plannedItems: 'id, household_id, planned_for, completed_at, event_id, &client_id',
+      planningEvents: 'id, household_id, starts_on, &client_id',
+      pendingChanges: 'client_id, household_id, status, created_at',
+      household_members: 'id, household_id',
+      audit_log: 'id, household_id, record_id',
+    });
   }
 }
 
