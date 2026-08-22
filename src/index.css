@@ -1434,6 +1434,24 @@ button.calendar-day.calendar-day-high {
   margin-top: 8px;
 }
 
+/* Normalize native date/time editors against styled inputs. */
+input[type='datetime-local'] {
+  -webkit-appearance: none;
+  appearance: none;
+  align-items: center;
+  text-align: left;
+}
+
+input[type='datetime-local']::-webkit-datetime-edit {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+
+input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  margin-left: auto;
+}
+
 .chip-fieldset {
   margin: 0;
   padding: 0;
