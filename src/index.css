@@ -921,15 +921,19 @@ textarea:focus-visible,
 }
 
 .purchase-rank {
-  display: grid;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 24px;
   height: 24px;
-  place-items: center;
+  flex: 0 0 24px;
   border-radius: 50%;
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 0.68rem;
   font-weight: 800;
+  line-height: 1;
+  text-align: center;
 }
 
 .purchase-rank.purchase-rank-gold {
