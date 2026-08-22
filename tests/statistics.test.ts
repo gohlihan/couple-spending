@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { Transaction } from '../src/lib/db.ts';
 import {
   calculateStatistics,
+  calendarWeeks,
   groupTransactionsByDay,
   cumulativeSeries,
   cumulativeTransactionSeries,
@@ -149,4 +150,27 @@ test('builds historical month, rolling seven-day, and hourly series boundaries',
   assert.equal(hourly.length, 24);
   assert.equal(hourly[2]?.value, 10);
   assert.equal(hourly[14]?.value, 5);
+});
+
+test('builds a sunday-first calendar grid with leading blanks and exact week counts', () => {
+  const july = calendarWeeks(localDate(2026, 7, 1));
+
+  assert.equal(july[0]?.length, 7);
+  assert.deepEqual(july[0]?.slice(0, 3), [null, null, null]);
+  assert.equal(july[0]?.[3]?.dayOfMonth, 1);
+  assert.equal(july[0]?.[3]?.dateKey, '2026-07-01');
+  const flatJuly = july.flat();
+  assert.equal(flatJuly.filter((cell) => cell === null).length, 3);
+  assert.equal(flatJuly.at(-1)?.dayOfMonth, 31);
+  assert.equal(july.length, 5);
+
+  const february = calendarWeeks(localDate(2026, 2, 1));
+  assert.equal(february.length, 4);
+  assert.deepEqual(february[0]?.[0], { dateKey: '2026-02-01', dayOfMonth: 1 });
+  assert.equal(february.at(-1)?.at(-1)?.dayOfMonth, 28);
+
+  const february2027 = calendarWeeks(localDate(2027, 2, 1));
+  assert.deepEqual(february2027[0]?.slice(0, 1), [null]);
+  assert.equal(february2027[0]?.[1]?.dateKey, '2027-02-01');
+  assert.equal(february2027.length, 5);
 });

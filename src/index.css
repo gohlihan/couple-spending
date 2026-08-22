@@ -947,6 +947,162 @@ textarea:focus-visible,
   color: var(--medal-bronze);
 }
 
+.breakdown-toggle {
+  display: flex;
+  gap: 2px;
+}
+
+.breakdown-toggle .breakdown-toggle-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.spending-calendar {
+  margin-top: 14px;
+}
+
+.calendar-weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.calendar-weekday-row span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.calendar-grid-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-grid-row + .calendar-grid-row {
+  margin-top: 4px;
+}
+
+.calendar-day {
+  min-height: 44px;
+  display: grid;
+  place-content: center;
+  row-gap: 2px;
+  padding: 2px;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+}
+
+button.calendar-day {
+  border: 0;
+  cursor: pointer;
+  text-align: center;
+}
+
+.calendar-day-empty {
+  pointer-events: none;
+}
+
+.calendar-day-low {
+  background: color-mix(in srgb, var(--accent) 10%, white);
+  color: var(--ink);
+}
+
+.calendar-day-mid {
+  background: color-mix(in srgb, var(--accent) 24%, white);
+  color: var(--ink);
+}
+
+.calendar-day-high,
+button.calendar-day.calendar-day-high {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.calendar-day-today {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.calendar-day-peak .calendar-day-number {
+  font-weight: 800;
+}
+
+.calendar-day-number {
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.calendar-day-amount {
+  font-size: 0.6rem;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.day-sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.day-transaction-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.day-transaction-separator {
+  display: block;
+  height: 1px;
+  margin: 2px 0;
+  background: var(--line);
+}
+
+.day-transaction-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  column-gap: 10px;
+  align-items: center;
+  border: 0;
+  padding: 12px 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.day-transaction-copy {
+  min-width: 0;
+}
+
+.day-transaction-copy span {
+  display: block;
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-transaction-copy span:first-child {
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.day-transaction-copy span:last-child {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.day-transaction-row strong {
+  color: var(--positive);
+  font-size: 0.78rem;
+}
+
 .largest-purchases-list p,
 .largest-purchases-list span {
   overflow: hidden;

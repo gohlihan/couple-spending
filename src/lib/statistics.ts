@@ -232,3 +232,26 @@ export function totalForLocalDay(transactions: Transaction[], date: Date): numbe
     0,
   );
 }
+
+export interface CalendarCell {
+  dateKey: string;
+  dayOfMonth: number;
+}
+
+/** Sunday-first month grid; leading blanks pad the first week to seven cells. */
+export function calendarWeeks(month: Date): Array<Array<CalendarCell | null>> {
+  const lead = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const cells: Array<CalendarCell | null> = [
+    ...Array.from({ length: lead }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => {
+      const date = new Date(month.getFullYear(), month.getMonth(), index + 1, 12);
+      return { dateKey: localDayKey(date), dayOfMonth: index + 1 };
+    }),
+  ];
+  const weeks: Array<Array<CalendarCell | null>> = [];
+  for (let index = 0; index < cells.length; index += 7) {
+    weeks.push(cells.slice(index, index + 7));
+  }
+  return weeks;
+}

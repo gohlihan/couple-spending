@@ -1,4 +1,5 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import { CalendarDays, ChartColumn } from 'lucide-react';
 import type { Transaction } from '../lib/db';
 import { formatCurrency } from '../lib/currency';
 import { shortId, type MemberNames } from '../lib/members';
@@ -11,8 +12,10 @@ import {
 } from '../lib/statistics';
 import { useCurrentLocalDate } from '../lib/use-current-local-date';
 import type { CategoryChartPoint } from '../components/CategorySpendingChart';
+import SpendingCalendar from '../components/SpendingCalendar';
 import StatisticCard, { type StatisticChartPoint } from '../components/StatisticCard';
 import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Separator } from '../components/ui/separator';
 
@@ -59,12 +62,15 @@ export default function Statistics({
   transactions,
   memberNames,
   month,
+  onOpenTransaction,
 }: {
   transactions: Transaction[];
   memberNames: MemberNames;
   month: Date;
+  onOpenTransaction: (transaction: Transaction) => void;
 }) {
   const asOf = useCurrentLocalDate();
+  const [breakdownView, setBreakdownView] = useState<'chart' | 'calendar'>('chart');
   const statistics = calculateStatistics(transactions);
   const dailyPoints = dailySpendingSeries(transactions, month, asOf);
   const spentPoints = cumulativeSeries(dailyPoints);
@@ -138,19 +144,53 @@ export default function Statistics({
       <Card as="section" className="statistics-panel" aria-labelledby="category-title">
         <CardHeader className="statistics-panel-header">
           <div className="section-title-row">
-            <CardTitle id="category-title">By category</CardTitle>
-            <Badge variant="outline">{statistics.categories.length}</Badge>
+            <CardTitle id="category-title">
+              {breakdownView === 'chart' ? 'By category' : 'Calendar'}
+            </CardTitle>
+            <div className="breakdown-toggle" role="group" aria-label="Breakdown view">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={breakdownView === 'chart' ? 'breakdown-toggle-active' : ''}
+                aria-pressed={breakdownView === 'chart'}
+                aria-label="Show category chart"
+                onClick={() => setBreakdownView('chart')}
+              >
+                <ChartColumn size={18} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={breakdownView === 'calendar' ? 'breakdown-toggle-active' : ''}
+                aria-pressed={breakdownView === 'calendar'}
+                aria-label="Show spending calendar"
+                onClick={() => setBreakdownView('calendar')}
+              >
+                <CalendarDays size={18} />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="statistics-panel-content">
-          {statistics.categories.length === 0 ? (
-            <p className="plan-empty">Add spending to see category patterns.</p>
+          {breakdownView === 'chart' ? (
+            statistics.categories.length === 0 ? (
+              <p className="plan-empty">Add spending to see category patterns.</p>
+            ) : (
+              <Suspense
+                fallback={<div className="category-chart chart-loading" aria-hidden="true" />}
+              >
+                <CategorySpendingChart data={categoryChartData as CategoryChartPoint[]} />
+              </Suspense>
+            )
+          ) : transactions.length === 0 ? (
+            <p className="plan-empty">Add spending to see the calendar.</p>
           ) : (
-            <Suspense
-              fallback={<div className="category-chart chart-loading" aria-hidden="true" />}
-            >
-              <CategorySpendingChart data={categoryChartData as CategoryChartPoint[]} />
-            </Suspense>
+            <SpendingCalendar
+              transactions={transactions}
+              month={month}
+              memberNames={memberNames}
+              onOpenTransaction={onOpenTransaction}
+            />
           )}
         </CardContent>
       </Card>
