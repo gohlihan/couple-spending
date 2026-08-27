@@ -97,8 +97,8 @@ export default function DateBar({ month, onChange }: DateBarProps) {
           </div>
         </PopoverContent>
       </Popover>
-      <span className="date-bar-range" aria-live="polite">
-        {monthRange(month)}
+      <span className="date-bar-range" aria-live="polite" title={monthRange(month)}>
+        {`${monthName(month.getFullYear(), month.getMonth())} ${month.getFullYear()}`}
       </span>
       <div className="date-bar-controls">
         <Button
