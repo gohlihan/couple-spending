@@ -1470,8 +1470,12 @@ input[type='datetime-local']::-webkit-calendar-picker-indicator {
 
 .form-row-2col {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
+}
+
+.form-row-2col > * {
+  min-width: 0;
 }
 
 .view-header-actions {
