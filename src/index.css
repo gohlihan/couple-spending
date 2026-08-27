@@ -112,9 +112,10 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Buttons and combobox triggers have no ring of their own; text inputs and
+   textareas already render a border + ring focus treatment via their
+   component classes, and stacking this outline on top doubles it up. */
 button:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
 [role='combobox']:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
