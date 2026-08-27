@@ -14,7 +14,7 @@ import { Skeleton } from '../components/ui/skeleton';
  * membership); if missing it's fetched directly from the household.
  */
 export default function Invite() {
-  const { householdId, inviteCode, displayName } = useAuth();
+  const { householdId, inviteCode } = useAuth();
   const [code, setCode] = useState<string | null>(inviteCode);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
@@ -79,8 +79,7 @@ export default function Invite() {
     <Card as="section" className="invite-card">
       <h2>Invite your partner</h2>
       <p className="muted">
-        Share this code or link with {displayName ?? 'your partner'}. Once they join, you’ll share
-        one budget.
+        Share this code or link with your partner. Once they join, you’ll share one budget.
       </p>
 
       {code ? (
