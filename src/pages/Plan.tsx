@@ -462,7 +462,12 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
         }}
       >
         {formState !== undefined && (
-          <SheetContent side="bottom" className="sheet" aria-describedby="plan-form-description">
+          <SheetContent
+            side="bottom"
+            className="sheet"
+            showCloseButton={false}
+            aria-describedby="plan-form-description"
+          >
             <SheetHeader className="sr-only">
               <SheetTitle>
                 {formState.item
@@ -491,7 +496,12 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
         }}
       >
         {eventFormItem !== undefined && (
-          <SheetContent side="bottom" className="sheet" aria-describedby="event-form-description">
+          <SheetContent
+            side="bottom"
+            className="sheet"
+            showCloseButton={false}
+            aria-describedby="event-form-description"
+          >
             <SheetHeader className="sr-only">
               <SheetTitle>{eventFormItem ? 'Edit event' : 'New event'}</SheetTitle>
               <SheetDescription id="event-form-description">
