@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { friendlyError } from '../lib/errors';
 import { useAuth } from '../lib/use-auth';
 import {
   createHouseholdForUser,
@@ -84,7 +85,7 @@ export default function Signup({ initialInviteCode, onSwitchToLogin }: SignupPro
       clearPendingInviteCode();
       await refreshMembership(data.user.id);
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : String(err));
+      setAuthError(friendlyError(err, 'Could not create your account.'));
     } finally {
       setSubmitting(false);
       setPendingSetup(false);

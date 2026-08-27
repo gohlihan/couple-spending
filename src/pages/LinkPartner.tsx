@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { linkHouseholdByCode, normalizeInviteCode } from '../lib/household';
+import { friendlyError } from '../lib/errors';
 import { useAuth } from '../lib/use-auth';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
@@ -27,7 +28,7 @@ export default function LinkPartner() {
       setInviteCode('');
       setMessage('Household linked. Your partner’s shared data is now available.');
     } catch (linkError) {
-      setError(linkError instanceof Error ? linkError.message : 'Could not link household.');
+      setError(friendlyError(linkError, 'Could not link household.'));
     } finally {
       setPendingSetup(false);
       setSubmitting(false);
