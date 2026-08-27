@@ -428,31 +428,33 @@ export default function Plan({ memberNames }: { memberNames: MemberNames }) {
   return (
     <section className="plan-screen" aria-labelledby="plan-title">
       <header className="view-header">
-        <div>
-          <p className="section-eyebrow">Shared list</p>
-          <h1 id="plan-title">Plan</h1>
-          <p>Set aside what you need before it becomes spending.</p>
+        <div className="view-header-top">
+          <div>
+            <p className="section-eyebrow">Shared list</p>
+            <h1 id="plan-title">Plan</h1>
+          </div>
+          <div className="view-header-actions">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="view-add-button"
+              onClick={() => openItemForm(null)}
+            >
+              Add item
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="view-add-button"
+              onClick={() => setEventFormItem(null)}
+            >
+              Add event
+            </Button>
+          </div>
         </div>
-        <div className="view-header-actions">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="view-add-button"
-            onClick={() => openItemForm(null)}
-          >
-            Add item
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="view-add-button"
-            onClick={() => setEventFormItem(null)}
-          >
-            Add event
-          </Button>
-        </div>
+        <p>Set aside what you need before it becomes spending.</p>
       </header>
 
       <Sheet

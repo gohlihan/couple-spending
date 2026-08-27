@@ -93,8 +93,8 @@ export default function Statistics({
         <div>
           <p className="section-eyebrow">Monthly breakdown</p>
           <h1 id="statistics-title">Statistics</h1>
-          <p>Understand where your shared budget is going.</p>
         </div>
+        <p>Understand where your shared budget is going.</p>
       </header>
 
       <section className="analytics-grid statistics-summary-grid" aria-label="Spending summary">

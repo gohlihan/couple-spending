@@ -695,6 +695,11 @@ button:focus-visible,
 
 .view-header {
   display: flex;
+  flex-direction: column;
+}
+
+.view-header-top {
+  display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
@@ -709,7 +714,6 @@ button:focus-visible,
 }
 
 .view-header p:not(.section-eyebrow) {
-  max-width: 15rem;
   margin: 8px 0 0;
   color: var(--muted);
   font-size: 0.82rem;
