@@ -451,7 +451,15 @@ export default function Main({ onSignOut }: MainProps) {
                 </div>
                 <div>
                   <dt>When</dt>
-                  <dd>{new Date(detailTransaction.spent_at).toLocaleString('en-MY')}</dd>
+                  <dd>
+                    {new Intl.DateTimeFormat('en-MY', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    }).format(new Date(detailTransaction.spent_at))}
+                  </dd>
                 </div>
                 <div>
                   <dt>Paid by</dt>

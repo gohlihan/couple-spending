@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/use-auth';
+import { friendlyError } from '../lib/errors';
 import {
   clearPendingInviteCode,
   createHouseholdForUser,
@@ -35,7 +36,7 @@ export default function Join({ initialInviteCode }: JoinProps) {
       clearPendingInviteCode();
       await refreshMembership();
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : String(err));
+      setAuthError(friendlyError(err, 'Could not join the household.'));
     } finally {
       setSubmitting(false);
       setPendingSetup(false);
@@ -53,7 +54,7 @@ export default function Join({ initialInviteCode }: JoinProps) {
       clearPendingInviteCode();
       await refreshMembership();
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : String(err));
+      setAuthError(friendlyError(err, 'Could not create the household.'));
     } finally {
       setSubmitting(false);
       setPendingSetup(false);

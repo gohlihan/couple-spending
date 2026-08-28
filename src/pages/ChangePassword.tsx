@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { validatePasswordChange } from '../lib/password';
 import { supabase } from '../lib/supabase';
+import { friendlyError } from '../lib/errors';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
@@ -32,7 +33,7 @@ export default function ChangePassword() {
       setConfirmation('');
       setMessage('Password changed successfully.');
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'Could not change password.');
+      setError(friendlyError(updateError, 'Could not change password.'));
     } finally {
       setSubmitting(false);
     }
