@@ -7,11 +7,13 @@ import {
   cumulativeSeries,
   cumulativeTransactionSeries,
   dailySpendingSeries,
+  memberSpendingTotals,
   runningAverageSeries,
   calculateStatistics,
 } from '../lib/statistics';
 import { useCurrentLocalDate } from '../lib/use-current-local-date';
 import type { CategoryChartPoint } from '../components/CategorySpendingChart';
+import type { MemberChartPoint } from '../components/MemberSpendingChart';
 import SpendingCalendar from '../components/SpendingCalendar';
 import StatisticCard, { type StatisticChartPoint } from '../components/StatisticCard';
 import { Badge } from '../components/ui/badge';
@@ -20,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Separator } from '../components/ui/separator';
 
 const CategorySpendingChart = lazy(() => import('../components/CategorySpendingChart'));
+const MemberSpendingChart = lazy(() => import('../components/MemberSpendingChart'));
 
 const DATE_LABEL = new Intl.DateTimeFormat('en-MY', { day: 'numeric', month: 'short' });
 const TIME_LABEL = new Intl.DateTimeFormat('en-MY', {
@@ -86,6 +89,12 @@ export default function Statistics({
     amount: category.amount,
     count: category.count,
   }));
+  const memberChartData = memberSpendingTotals(transactions, Object.keys(memberNames)).map(
+    (member) => ({
+      ...member,
+      member: memberNames[member.memberId] ?? shortId(member.memberId),
+    }),
+  );
 
   return (
     <section className="statistics-screen" aria-labelledby="statistics-title">
@@ -140,6 +149,26 @@ export default function Statistics({
           }
         />
       </section>
+
+      <Card as="section" className="statistics-panel" aria-labelledby="member-spending-title">
+        <CardHeader className="statistics-panel-header">
+          <div className="section-title-row">
+            <CardTitle id="member-spending-title">By household member</CardTitle>
+            <Badge variant="outline">{memberChartData.length}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="statistics-panel-content">
+          {transactions.length === 0 ? (
+            <p className="plan-empty">Add spending to compare household members.</p>
+          ) : (
+            <Suspense
+              fallback={<div className="member-spending-chart chart-loading" aria-hidden="true" />}
+            >
+              <MemberSpendingChart data={memberChartData as MemberChartPoint[]} />
+            </Suspense>
+          )}
+        </CardContent>
+      </Card>
 
       <Card as="section" className="statistics-panel" aria-labelledby="category-title">
         <CardHeader className="statistics-panel-header">

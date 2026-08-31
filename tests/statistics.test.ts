@@ -10,6 +10,7 @@ import {
   dailySpendingSeries,
   hourlySpendingSeries,
   lastSevenDaysSpendingSeries,
+  memberSpendingTotals,
   remainingBudgetSeries,
   runningAverageSeries,
   totalForLocalDay,
@@ -65,6 +66,23 @@ test('calculates category totals, active-day average, and deterministic top five
     ['d', 'b', 'c', 'a'],
   );
   assert.deepEqual(summary.highestSpendDay, { date: '2026-07-27', amount: 200 });
+});
+
+test('calculates payer totals and retains household members with no spending', () => {
+  const totals = memberSpendingTotals(
+    [
+      transaction({ id: 'a', amount: 20, payer_id: 'user-2' }),
+      transaction({ id: 'b', amount: 80, payer_id: 'user-1' }),
+      transaction({ id: 'c', amount: 40, payer_id: null, created_by: 'user-2' }),
+    ],
+    ['user-1', 'user-2', 'user-3'],
+  );
+
+  assert.deepEqual(totals, [
+    { memberId: 'user-1', amount: 80, count: 1 },
+    { memberId: 'user-2', amount: 60, count: 2 },
+    { memberId: 'user-3', amount: 0, count: 0 },
+  ]);
 });
 
 test('groups rows newest day first and newest transaction first within each day', () => {

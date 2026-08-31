@@ -6,6 +6,12 @@ export interface CategoryStatistic {
   count: number;
 }
 
+export interface MemberSpendingStatistic {
+  memberId: string;
+  amount: number;
+  count: number;
+}
+
 export interface StatisticsSummary {
   totalSpent: number;
   transactionCount: number;
@@ -148,6 +154,27 @@ export function hourlySpendingSeries(
 
 function categoryName(transaction: Transaction): string {
   return transaction.chip?.trim() || 'Other';
+}
+
+/** Sum selected-month spending by payer, retaining known members with no spending. */
+export function memberSpendingTotals(
+  transactions: Transaction[],
+  memberIds: string[] = [],
+): MemberSpendingStatistic[] {
+  const totals = new Map<string, MemberSpendingStatistic>();
+  for (const memberId of memberIds) totals.set(memberId, { memberId, amount: 0, count: 0 });
+
+  for (const transaction of transactions) {
+    const memberId = transaction.payer_id ?? transaction.created_by;
+    const current = totals.get(memberId) ?? { memberId, amount: 0, count: 0 };
+    current.amount += transaction.amount;
+    current.count += 1;
+    totals.set(memberId, current);
+  }
+
+  return [...totals.values()].sort(
+    (left, right) => right.amount - left.amount || left.memberId.localeCompare(right.memberId),
+  );
 }
 
 /**
