@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
+import AmountKeypad from '../components/AmountKeypad';
 import PayerSelect from '../components/PayerSelect';
 import type { PlannedItem, PlanningEvent } from '../lib/db';
 import { formatCurrency } from '../lib/currency';
@@ -18,6 +19,7 @@ import {
   usePlanningEvents,
 } from '../lib/planning-events';
 import { partitionItemsByEvent } from '../lib/planning-events-core';
+import { readAmountExpression } from '../lib/amount-expression';
 import { useAuth } from '../lib/use-auth';
 import {
   AlertDialog,
@@ -35,7 +37,6 @@ import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Checkbox } from '../components/ui/checkbox';
 import { Field, FieldError, FieldLabel } from '../components/ui/field';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import {
@@ -92,11 +93,19 @@ function PlanItemForm({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const numericAmount = Number(amount);
+    const parsedAmount = readAmountExpression(amount);
+    if (!parsedAmount.ok || parsedAmount.value <= 0) {
+      setError(
+        !parsedAmount.ok && amount.trim()
+          ? parsedAmount.error
+          : 'Enter an estimated amount greater than zero.',
+      );
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      const input = { title, amount: numericAmount, plannedFor, eventId };
+      const input = { title, amount: parsedAmount.value, plannedFor, eventId };
       if (item) await updatePlannedItem(item, input, { user, householdId });
       else await addPlannedItem(input, { user, householdId });
       onDone();
@@ -136,21 +145,14 @@ function PlanItemForm({
         </Field>
         <Field>
           <FieldLabel htmlFor="plan-amount">Estimated amount</FieldLabel>
-          <InputGroup>
-            <InputGroupAddon aria-hidden="true">RM</InputGroupAddon>
-            <InputGroupInput
-              id="plan-amount"
-              type="number"
-              inputMode="decimal"
-              min="0.01"
-              step="0.01"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder="0.00"
-              required
-              disabled={submitting}
-            />
-          </InputGroup>
+          <AmountKeypad
+            id="plan-amount"
+            required
+            value={amount}
+            onChange={setAmount}
+            placeholder="0.00"
+            disabled={submitting}
+          />
         </Field>
         <Field>
           <FieldLabel htmlFor="plan-date">
@@ -262,6 +264,7 @@ function EventForm({ event, onDone }: { event: PlanningEvent | null; onDone: () 
             value={note}
             onChange={(changeEvent) => setNote(changeEvent.target.value)}
             placeholder="Anything to remember?"
+            inputMode="text"
             disabled={submitting}
           />
         </Field>

@@ -1,4 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import AmountKeypad from '../components/AmountKeypad';
+import { readAmountExpression } from '../lib/amount-expression';
 import type { Budget } from '../lib/db';
 import { saveBudget } from '../lib/budget';
 import { useAuth } from '../lib/use-auth';
@@ -6,7 +8,6 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FieldLabel } from '../components/ui/field';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group';
 
 interface BudgetSettingsProps {
   budget: Budget | null;
@@ -35,13 +36,19 @@ export default function BudgetSettings({ budget }: BudgetSettingsProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedAmount = amount.trim();
-    const numericAmount = Number(trimmedAmount);
+    const parsedAmount = readAmountExpression(trimmedAmount);
 
-    if (!trimmedAmount || !Number.isFinite(numericAmount) || numericAmount < 0) {
+    if (!parsedAmount.ok) {
+      setError(trimmedAmount ? parsedAmount.error : 'Enter a valid amount of zero or more.');
+      setMessage(null);
+      return;
+    }
+    if (parsedAmount.value < 0) {
       setError('Enter a valid amount of zero or more.');
       setMessage(null);
       return;
     }
+    const numericAmount = parsedAmount.value;
 
     if (!user || !householdId) {
       setError('You must be signed in to a household before changing the budget.');
@@ -69,24 +76,17 @@ export default function BudgetSettings({ budget }: BudgetSettingsProps) {
       <form className="transaction-form" onSubmit={handleSubmit}>
         <Field>
           <FieldLabel htmlFor="budget-amount">Monthly amount</FieldLabel>
-          <InputGroup>
-            <InputGroupAddon aria-hidden="true">RM</InputGroupAddon>
-            <InputGroupInput
-              id="budget-amount"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="0.01"
-              value={amount}
-              onChange={(event) => {
-                setIsDirty(true);
-                setAmount(event.target.value);
-              }}
-              placeholder="100.00"
-              disabled={submitting}
-              autoFocus
-            />
-          </InputGroup>
+          <AmountKeypad
+            id="budget-amount"
+            autoFocus
+            value={amount}
+            onChange={(next) => {
+              setIsDirty(true);
+              setAmount(next);
+            }}
+            placeholder="100.00"
+            disabled={submitting}
+          />
         </Field>
 
         {error && (
