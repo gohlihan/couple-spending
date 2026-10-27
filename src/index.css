@@ -108,6 +108,14 @@ input {
   font: inherit;
 }
 
+/* iOS Safari zooms the whole page when a focused field computes under 16px,
+   which reflows the layout. Keep every text field at the threshold. */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
 button {
   -webkit-tap-highlight-color: transparent;
 }

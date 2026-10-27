@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { readAmountExpression } from '../lib/amount-expression';
 import type { Transaction } from '../lib/db';
+import AmountKeypad from '../components/AmountKeypad';
 import PayerSelect from '../components/PayerSelect';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Field, FieldLabel } from '../components/ui/field';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
@@ -58,12 +59,18 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const numericAmount = Number(amount);
-    if (!amount || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+    const parsedAmount = readAmountExpression(amount);
+    if (!parsedAmount.ok) {
+      setError(amount.trim() ? parsedAmount.error : 'Enter an amount greater than zero.');
+      setMessage(null);
+      return;
+    }
+    if (parsedAmount.value <= 0) {
       setError('Enter an amount greater than zero.');
       setMessage(null);
       return;
     }
+    const numericAmount = parsedAmount.value;
 
     const parsedSpentAt = new Date(spentAt);
     if (Number.isNaN(parsedSpentAt.getTime())) {
@@ -112,23 +119,16 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
       <form className="transaction-form" onSubmit={handleSubmit}>
         <Field>
           <FieldLabel htmlFor="transaction-amount">Amount</FieldLabel>
-          <InputGroup>
-            <InputGroupAddon aria-hidden="true">RM</InputGroupAddon>
-            <InputGroupInput
-              ref={amountRef}
-              id="transaction-amount"
-              type="number"
-              inputMode="decimal"
-              min="0.01"
-              step="0.01"
-              required
-              autoFocus
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder="0.00"
-              disabled={submitting}
-            />
-          </InputGroup>
+          <AmountKeypad
+            ref={amountRef}
+            id="transaction-amount"
+            required
+            autoFocus
+            value={amount}
+            onChange={setAmount}
+            placeholder="0.00"
+            disabled={submitting}
+          />
         </Field>
 
         <Field>
@@ -164,11 +164,7 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
             aria-label="Quick tag"
           >
             {chips.map((option) => (
-              <ToggleGroupItem
-                key={option}
-                value={option}
-                aria-label={`Tag as ${option}`}
-              >
+              <ToggleGroupItem key={option} value={option} aria-label={`Tag as ${option}`}>
                 {option}
               </ToggleGroupItem>
             ))}
@@ -185,6 +181,7 @@ export default function AddTransaction({ transaction, onSaved }: AddTransactionP
             onChange={(event) => setNote(event.target.value)}
             placeholder="What was this for?"
             rows={3}
+            inputMode="text"
             disabled={submitting}
           />
         </Field>
