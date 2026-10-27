@@ -14,7 +14,7 @@ import { useHouseholdMemberRoster } from '../lib/members';
 import { addTransaction, updateTransaction } from '../lib/transactions';
 import { useAuth } from '../lib/use-auth';
 
-const chips = ['eat', 'shop', 'petrol', 'bills', 'fun'];
+const chips = ['eat', 'shop', 'petrol'];
 
 function localDateTimeValue(date = new Date()): string {
   const offset = date.getTimezoneOffset() * 60_000;
