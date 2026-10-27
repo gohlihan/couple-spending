@@ -60,49 +60,99 @@ export default function AmountKeypad({
   ref,
 }: AmountKeypadProps & { ref?: Ref<HTMLInputElement> }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const freshRef = useRef(false);
+  const valueRef = useRef(value);
+  const blurTimer = useRef<number | null>(null);
+  const keyGesture = useRef(false);
+  const lastPressAt = useRef(0);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const errorId = `${id}-error`;
   const keypadId = `${id}-keypad`;
+  valueRef.current = value;
 
   useEffect(() => {
     if (!open) return;
     containerRef.current?.scrollIntoView({ block: 'nearest' });
   }, [open]);
 
+  useEffect(
+    () => () => {
+      if (blurTimer.current !== null) window.clearTimeout(blurTimer.current);
+    },
+    [],
+  );
+
   function assignInput(node: HTMLInputElement | null) {
+    inputRef.current = node;
     if (typeof ref === 'function') ref(node);
     else if (ref) ref.current = node;
   }
 
   function commit() {
-    const parsed = readAmountExpression(value);
+    const expression = valueRef.current;
+    const parsed = readAmountExpression(expression);
     if (parsed.ok) {
       const formatted = formatAmountValue(parsed.value);
       setError(null);
-      if (formatted !== value) onChange(formatted);
+      if (formatted !== expression) {
+        valueRef.current = formatted;
+        onChange(formatted);
+      }
       return;
     }
-    setError(value.trim() ? parsed.error : null);
+    setError(expression.trim() ? parsed.error : null);
+  }
+
+  function cancelBlurClose() {
+    if (blurTimer.current === null) return;
+    window.clearTimeout(blurTimer.current);
+    blurTimer.current = null;
   }
 
   function handleBlur(event: FocusEvent<HTMLDivElement>) {
     const next = event.relatedTarget;
     if (next instanceof Node && event.currentTarget.contains(next)) return;
-    commit();
-    setOpen(false);
+    // A key tap blurs the amount on iPhone before the button is focused, and
+    // relatedTarget is empty, so the keypad would close after every key.
+    if (keyGesture.current) {
+      keyGesture.current = false;
+      inputRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    const container = containerRef.current;
+    cancelBlurClose();
+    blurTimer.current = window.setTimeout(() => {
+      blurTimer.current = null;
+      if (keyGesture.current || container?.contains(document.activeElement)) return;
+      commit();
+      setOpen(false);
+    }, 0);
   }
 
   function press(key: AmountKey) {
-    const next = applyAmountKey(value, key, { fresh: freshRef.current });
+    const now = performance.now();
+    // One tap fires both touch and pointer events. Ignore the duplicate.
+    if (now - lastPressAt.current < 40) return;
+    lastPressAt.current = now;
+    keyGesture.current = true;
+    cancelBlurClose();
+    const current = valueRef.current;
+    const next = applyAmountKey(current, key, { fresh: freshRef.current });
     freshRef.current = next.evaluated;
+    valueRef.current = next.expression;
     setError(next.error);
-    if (next.expression !== value) onChange(next.expression);
+    if (next.expression !== current) onChange(next.expression);
+    inputRef.current?.focus({ preventScroll: true });
+    window.setTimeout(() => {
+      keyGesture.current = false;
+    }, 200);
   }
 
-  function keepFieldFocused(event: PointerEvent<HTMLButtonElement>) {
-    event.preventDefault();
+  function handlePointerDown(event: PointerEvent<HTMLButtonElement>, key: AmountKey) {
+    if (event.pointerType !== 'touch') event.preventDefault();
+    press(key);
   }
 
   return (
@@ -152,10 +202,8 @@ export default function AmountKeypad({
                 key.kind === 'operator' && 'bg-accent text-accent-foreground',
                 key.kind === 'equals' && 'bg-primary text-primary-foreground',
               )}
-              onPointerDown={(event) => {
-                keepFieldFocused(event);
-                press(key.key);
-              }}
+              onPointerDown={(event) => handlePointerDown(event, key.key)}
+              onTouchStart={() => press(key.key)}
               onKeyDown={(event) => {
                 if (event.repeat) return;
                 if (event.key !== 'Enter' && event.key !== ' ') return;
