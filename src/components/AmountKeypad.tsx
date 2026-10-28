@@ -63,26 +63,52 @@ export default function AmountKeypad({
   const inputRef = useRef<HTMLInputElement>(null);
   const freshRef = useRef(false);
   const valueRef = useRef(value);
+  const padRef = useRef<HTMLDivElement>(null);
   const blurTimer = useRef<number | null>(null);
+  const keepTimer = useRef<number | null>(null);
   const keyGesture = useRef(false);
   const lastPressAt = useRef(0);
+  const openRef = useRef(false);
+  const markInsideRef = useRef<() => void>(() => {});
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const errorId = `${id}-error`;
   const keypadId = `${id}-keypad`;
   valueRef.current = value;
+  openRef.current = open;
 
   useEffect(() => {
     if (!open) return;
     containerRef.current?.scrollIntoView({ block: 'nearest' });
   }, [open]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    // touchstart is passive when React registers it, so preventDefault there
+    // cannot stop iOS from blurring the amount. A finger on the gap between
+    // keys has no button handler, and that blur was closing the keypad.
+    const keep = (event: Event) => {
+      if (!openRef.current) return;
+      const pad = padRef.current;
+      const target = event.target;
+      if (!pad || !(target instanceof Node) || !pad.contains(target)) return;
+      const element = target instanceof Element ? target : target.parentElement;
+      if (element?.closest('button')) return;
+      if (event.cancelable) event.preventDefault();
+      markInsideRef.current();
+    };
+
+    node.addEventListener('touchstart', keep, { capture: true, passive: false });
+    node.addEventListener('pointerdown', keep, { capture: true });
+    return () => {
+      node.removeEventListener('touchstart', keep, { capture: true });
+      node.removeEventListener('pointerdown', keep, { capture: true });
       if (blurTimer.current !== null) window.clearTimeout(blurTimer.current);
-    },
-    [],
-  );
+      if (keepTimer.current !== null) window.clearTimeout(keepTimer.current);
+    };
+  }, []);
 
   function assignInput(node: HTMLInputElement | null) {
     inputRef.current = node;
@@ -111,14 +137,29 @@ export default function AmountKeypad({
     blurTimer.current = null;
   }
 
+  function markInside() {
+    // A tap between keys blurs the amount before any button is focused, and
+    // relatedTarget is empty. Hold the keypad open across that blur.
+    keyGesture.current = true;
+    cancelBlurClose();
+    if (keepTimer.current !== null) window.clearTimeout(keepTimer.current);
+    keepTimer.current = window.setTimeout(() => {
+      keepTimer.current = null;
+      keyGesture.current = false;
+    }, 200);
+    inputRef.current?.focus({ preventScroll: true });
+  }
+  markInsideRef.current = markInside;
+
   function handleBlur(event: FocusEvent<HTMLDivElement>) {
     const next = event.relatedTarget;
     if (next instanceof Node && event.currentTarget.contains(next)) return;
-    // A key tap blurs the amount on iPhone before the button is focused, and
-    // relatedTarget is empty, so the keypad would close after every key.
     if (keyGesture.current) {
+      // Drop the flag while focusing so a synchronous blur cannot loop, and
+      // cancel the close that nested blur just scheduled.
       keyGesture.current = false;
       inputRef.current?.focus({ preventScroll: true });
+      cancelBlurClose();
       return;
     }
     const container = containerRef.current;
@@ -136,23 +177,26 @@ export default function AmountKeypad({
     // One tap fires both touch and pointer events. Ignore the duplicate.
     if (now - lastPressAt.current < 40) return;
     lastPressAt.current = now;
-    keyGesture.current = true;
-    cancelBlurClose();
+    markInside();
     const current = valueRef.current;
     const next = applyAmountKey(current, key, { fresh: freshRef.current });
     freshRef.current = next.evaluated;
     valueRef.current = next.expression;
     setError(next.error);
     if (next.expression !== current) onChange(next.expression);
-    inputRef.current?.focus({ preventScroll: true });
-    window.setTimeout(() => {
-      keyGesture.current = false;
-    }, 200);
   }
 
   function handlePointerDown(event: PointerEvent<HTMLButtonElement>, key: AmountKey) {
     if (event.pointerType !== 'touch') event.preventDefault();
     press(key);
+  }
+
+  function handlePadPointerDown(event: PointerEvent<HTMLDivElement>) {
+    const target = event.target;
+    const element = target instanceof Element ? target : null;
+    if (element?.closest('button')) return;
+    if (event.pointerType !== 'touch') event.preventDefault();
+    markInside();
   }
 
   return (
@@ -184,36 +228,47 @@ export default function AmountKeypad({
       </InputGroup>
       {open && !disabled && (
         <div
-          id={keypadId}
-          role="group"
-          aria-label="Amount keypad"
-          className="mt-2 grid grid-cols-4 gap-2"
+          ref={padRef}
+          className="touch-manipulation pt-2"
+          onPointerDown={handlePadPointerDown}
+          onTouchStart={(event) => {
+            const element = event.target instanceof Element ? event.target : null;
+            if (element?.closest('button')) return;
+            markInside();
+          }}
         >
-          {KEYS.map((key) => (
-            <button
-              key={key.aria}
-              type="button"
-              aria-label={key.aria}
-              className={cn(
-                'min-h-12 rounded-[14px] text-base font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring/50',
-                key.className,
-                key.kind === 'digit' && 'border border-input bg-background text-foreground',
-                key.kind === 'utility' && 'bg-secondary text-foreground',
-                key.kind === 'operator' && 'bg-accent text-accent-foreground',
-                key.kind === 'equals' && 'bg-primary text-primary-foreground',
-              )}
-              onPointerDown={(event) => handlePointerDown(event, key.key)}
-              onTouchStart={() => press(key.key)}
-              onKeyDown={(event) => {
-                if (event.repeat) return;
-                if (event.key !== 'Enter' && event.key !== ' ') return;
-                event.preventDefault();
-                press(key.key);
-              }}
-            >
-              {key.label}
-            </button>
-          ))}
+          <div
+            id={keypadId}
+            role="group"
+            aria-label="Amount keypad"
+            className="grid grid-cols-4 gap-2"
+          >
+            {KEYS.map((key) => (
+              <button
+                key={key.aria}
+                type="button"
+                aria-label={key.aria}
+                className={cn(
+                  'min-h-12 rounded-[14px] text-base font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring/50',
+                  key.className,
+                  key.kind === 'digit' && 'border border-input bg-background text-foreground',
+                  key.kind === 'utility' && 'bg-secondary text-foreground',
+                  key.kind === 'operator' && 'bg-accent text-accent-foreground',
+                  key.kind === 'equals' && 'bg-primary text-primary-foreground',
+                )}
+                onPointerDown={(event) => handlePointerDown(event, key.key)}
+                onTouchStart={() => press(key.key)}
+                onKeyDown={(event) => {
+                  if (event.repeat) return;
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  press(key.key);
+                }}
+              >
+                {key.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
       {error && <FieldError id={errorId}>{error}</FieldError>}
