@@ -61,6 +61,14 @@ test('key presses build, correct, and resolve an expression', () => {
   assert.equal(continued.expression, '18.5+');
 });
 
+test('stops each amount at two decimal places', () => {
+  const typed = ['1', '.', '2', '0', '6', '4', '5', '5', '4', '6'] as const;
+  const expression = typed.reduce((current, key) => applyAmountKey(current, key).expression, '');
+  assert.equal(expression, '1.20');
+  assert.equal(applyAmountKey('0.1', '5').expression, '0.15');
+  assert.equal(applyAmountKey('12.50+3.14', '1').expression, '12.50+3.14');
+});
+
 test('ignores a second decimal, a leading operator, and extra zeros', () => {
   assert.equal(applyAmountKey('1.2', '.').expression, '1.2');
   assert.equal(applyAmountKey('', '+').expression, '');
