@@ -35,6 +35,7 @@ type Token = { type: 'num'; value: number } | { type: 'op'; op: Operator };
 const DIGITS = new Set(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
 const OPERATORS = new Set<Operator>(['+', '-', '*', '/']);
 const MAX_NUMBER_DIGITS = 12;
+const MAX_FRACTION_DIGITS = 2;
 
 /** Show calculator glyphs while the stored expression stays ASCII. */
 export function displayAmountExpression(expression: string): string {
@@ -230,6 +231,8 @@ function currentNumber(expression: string): string {
 function appendDigit(expression: string, digit: string): string {
   const number = currentNumber(expression);
   if (number.replace('.', '').length >= MAX_NUMBER_DIGITS) return expression;
+  const dot = number.indexOf('.');
+  if (dot !== -1 && number.length - dot - 1 >= MAX_FRACTION_DIGITS) return expression;
   if (number === '0') return expression.slice(0, -1) + digit;
   return expression + digit;
 }
