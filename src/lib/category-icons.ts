@@ -1,4 +1,5 @@
 import {
+  Cat,
   CircleDollarSign,
   Fuel,
   PartyPopper,
@@ -12,6 +13,7 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   eat: UtensilsCrossed,
   shop: ShoppingBag,
   petrol: Fuel,
+  cat: Cat,
   bills: ReceiptText,
   fun: PartyPopper,
 };
